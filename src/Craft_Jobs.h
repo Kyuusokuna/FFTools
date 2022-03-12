@@ -16,4 +16,5 @@ typedef enum : u8 {
 } Craft_Job;
 
 
-extern const ROString_Literal Craft_Job_to_string[NUM_JOBS];
+extern const ROString_Literal Craft_Job_to_string[NUM_JOBS]; 
+extern const ROString_Literal Craft_Job_to_short_string[NUM_JOBS];

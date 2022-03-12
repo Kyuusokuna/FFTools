@@ -1,4 +1,5 @@
 #pragma once
+#include <assert.h>
 #include "types.h"
 #include "string.h"
 #include "Craft_Jobs.h"

@@ -660,7 +660,6 @@ void simulator_panel() {
 }
 
 void solver_panel() {
-    auto input_str_width = global_data.input_str_width;
     auto &solver = global_data.solver;
     static u32 seed = 0;
 

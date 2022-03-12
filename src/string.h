@@ -136,5 +136,13 @@ inline char to_upper(char c);
 String copy(ROString a);
 
 template<typename T>
-bool read(ROString &data, T *result);
+bool read(ROString &data, T *result) {
+    if (data.length < sizeof(T))
+        return false;
+
+    *result = *(T *)data.data;
+    ::advance(data, sizeof(T));
+
+    return true;
+}
 #endif

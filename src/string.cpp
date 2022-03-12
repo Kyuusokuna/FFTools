@@ -188,14 +188,3 @@ String copy(ROString a) {
     memcpy(result.data, a.data, a.length);
     return result;
 }
-
-template<typename T>
-bool read(ROString &data, T *result) {
-    if (data.length < sizeof(T))
-        return false;
-
-    advance(data, sizeof(T));
-
-    *result = *(T *)(data.data - sizeof(T));
-    return true;
-}

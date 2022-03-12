@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?> 
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+  <Type Name="Array&lt;*, *&gt;">
+    <DisplayString>{"$T1",s8b}[{count} / {capacity}] grow: {"$T2",s8b}</DisplayString>
+
+    <Expand HideRawView="true">
+      <ArrayItems>
+        <Direction>Forward</Direction>
+        <Rank>1</Rank>
+        <Size>count</Size>
+        <ValuePointer>values</ValuePointer>
+      </ArrayItems>
+    </Expand>
+  </Type>
+</AutoVisualizer>

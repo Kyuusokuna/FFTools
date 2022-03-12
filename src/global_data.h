@@ -13,6 +13,7 @@ enum Main_Panel {
     Main_Panel_Profile,
     Main_Panel_Crafting_Simulator,
     Main_Panel_Crafting_Solver,
+    Main_Panel_Materials,
 };
 extern struct Global_Data {
     Main_Panel current_main_panel = Main_Panel_Profile;
@@ -49,6 +50,10 @@ extern struct Global_Data {
 
         bool running_sim = false;
     } solver;
+
+    struct {
+        Recipe *selected_recipe = 0;
+    } materials;
 
     int32_t lines_per_macro = 13;
 

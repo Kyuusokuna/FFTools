@@ -497,6 +497,47 @@ bool recipe_selector(Craft_Job job, Recipe *&selected_recipe) {
     return false;
 }
 
+bool recipe_selector_all_jobs(Recipe *&selected_recipe) {
+    auto input_str_width = global_data.input_str_width;
+    bool has_selected_new_recipe = false;
+
+    if (!selected_recipe) {
+        static char recipe_search[64] = "";
+        SetNextItemMaxWidth(input_str_width);
+        ImGui::InputTextWithHint("##recipe_search", "Recipe search", recipe_search, sizeof(recipe_search));
+        SetNextItemMaxWidth(input_str_width);
+        if (ImGui::BeginListBox("##recipe_selector", ImVec2(0, -1))) {
+            for (int job = 0; job < NUM_JOBS; job++) {
+                for (int i = 0; i < NUM_RECIPES[job]; i++) {
+                    auto &recipe = Recipes[job][i];
+                    auto &result = recipe.result;
+                    auto &result_name = Item_to_name[result];
+                    if (contains_ignoring_case(result_name, { (int64_t)strlen(recipe_search), recipe_search })) {
+                        char display_buf[512];
+                        snprintf(display_buf, sizeof(display_buf), "%s: %s", Craft_Job_to_short_string[job].data, result_name.data);
+
+                        if (ImGui::Selectable(display_buf, false)) {
+                            selected_recipe = (Recipe *)&recipe;
+                            has_selected_new_recipe = true;
+                        }
+                    }
+                }
+            }
+            ImGui::EndListBox();
+        }
+
+        return has_selected_new_recipe;
+    }
+
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextUnformatted("Recipe: ");
+    PreferredSameLine(CalcButtonWidth(Item_to_name[selected_recipe->result].data));
+    if (ImGui::Button(Item_to_name[selected_recipe->result].data))
+        selected_recipe = 0;
+
+    return false;
+}
+
 void FFUI_ProgressBar(s32 current_value, s32 max_value, u32 left_color = 0xFF4AA24A, u32 right_color = 0xFF39D3B5, u32 full_separators = 0, u32 half_separators = 0) {
     ImGuiWindow *window = ImGui::GetCurrentWindow();
     if (window->SkipItems)
@@ -970,6 +1011,21 @@ void solver_panel() {
     }
 }
 
+void materials_panel() {
+    auto &data = global_data.materials;
+
+    if (recipe_selector_all_jobs(data.selected_recipe)) {
+
+    }
+    if (!data.selected_recipe)
+        return;
+
+    auto &recipe = data.selected_recipe;
+
+
+
+}
+
 bool GUI::per_frame() {
     ImGuiStyle &style = ImGui::GetStyle();
 
@@ -989,6 +1045,7 @@ bool GUI::per_frame() {
         if (AlignedMenuItem("Profile", current_main_panel == Main_Panel_Profile)) current_main_panel = Main_Panel_Profile;
         if (AlignedMenuItem("Simulator", current_main_panel == Main_Panel_Crafting_Simulator)) current_main_panel = Main_Panel_Crafting_Simulator;
         if (AlignedMenuItem("Solver", current_main_panel == Main_Panel_Crafting_Solver)) current_main_panel = Main_Panel_Crafting_Solver;
+        if (AlignedMenuItem("Materials", current_main_panel == Main_Panel_Materials)) current_main_panel = Main_Panel_Materials;
         ImGui::PopStyleColor(3);
 
         ImGui::EndMainMenuBar();
@@ -1007,6 +1064,8 @@ bool GUI::per_frame() {
             simulator_panel();
         } else if (global_data.current_main_panel == Main_Panel_Crafting_Solver) {
             solver_panel();
+        } else if (global_data.current_main_panel == Main_Panel_Materials) {
+            materials_panel();
         }
 
     } ImGui::End();

@@ -607,9 +607,9 @@ int ubench_main(int argc, const char *const argv[]) {
         double best_confidence = 101.0;
         struct ubench_run_state_s ubs;
 
-        #define UBENCH_MIN_ITERATIONS 10
-        #define UBENCH_MAX_ITERATIONS 500
-        ubench_int64_t iterations = 10;
+        #define UBENCH_MIN_ITERATIONS 50
+        #define UBENCH_MAX_ITERATIONS 5000
+        ubench_int64_t iterations = 50;
         const ubench_int64_t max_iterations = UBENCH_MAX_ITERATIONS;
         const ubench_int64_t min_iterations = UBENCH_MIN_ITERATIONS;
         /* Add one extra timestamp slot, as we save times between runs and time after exiting the last one */

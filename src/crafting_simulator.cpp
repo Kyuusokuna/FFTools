@@ -1,21 +1,10 @@
 #include "crafting_simulator.h"
 #include <superluminal/PerformanceAPI.h>
 
+// KNOWN ISSUES:
+//    CA_Manipulation,
 
 namespace Crafting_Simulator {
-
-    /*const s32 effective_level_table[] = {
-          1,   2,   3,   4,   5,   6,   7,   8,   9,  10, //  1-10
-         11,  12,  13,  14,  15,  16,  17,  18,  19,  20, // 11-20
-         21,  22,  23,  24,  25,  26,  27,  28,  29,  30, // 21-30
-         31,  32,  33,  34,  35,  36,  37,  38,  39,  40, // 31-40
-         41,  42,  43,  44,  45,  46,  47,  48,  49,  50, // 41-50
-        120, 125, 130, 133, 136, 139, 142, 145, 148, 150, // 51-60
-        260, 265, 270, 273, 276, 279, 282, 285, 288, 290, // 61-70
-        390, 395, 400, 403, 406, 409, 412, 415, 418, 420, // 71-80
-        517, 520, 525, 530, 535, 540, 545, 550, 555, 560, // 81-90
-    };*/
-
     s32 calc_progress_increase(s32 player_level, s32 recipe_level, s32 craftsmanship, s32 progress_divider, s32 progress_modifier) {
         s32 increase = craftsmanship * 10 / progress_divider + 2;
         if (player_level < recipe_level)

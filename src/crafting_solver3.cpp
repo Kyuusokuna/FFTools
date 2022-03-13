@@ -5,19 +5,6 @@
 #include "time.h"
 
 namespace Crafting_Solver3 {
-    /*inline u32 pcg32_output(u32 &state) {
-        u32 word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
-        return (word >> 22u) ^ word;
-    }
-
-    inline u32 pcg32_rand(u32 &state) {
-        u32 old_state = state;
-        state = state * 747796405U + 2891336453U;
-        return pcg32_output(old_state);
-    }*/
-
-    //#define pcg_rotr_32(value, rot) ((value >> rot) | (value << ((- rot) & 31)))
-
     inline uint32_t pcg_rotr_32(uint32_t value, unsigned int rot) {
         asm("rorl   %%cl, %0" : "=r" (value) : "0" (value), "c" (rot));
         return value;

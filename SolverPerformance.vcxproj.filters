@@ -33,6 +33,9 @@
     <ClCompile Include="src\Craft_Actions.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\crafting_solver3.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\time.h">
@@ -54,6 +57,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="libs\ubench\ubench.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\crafting_solver3.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

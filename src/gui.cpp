@@ -14,6 +14,7 @@
 #include "types.h"
 #include "global_data.h"
 #include "crafting_solver2.h"
+#include "crafting_solver3.h"
 #include "time.h"
 #include "../generated_src/compressed_data.h"
 
@@ -679,7 +680,11 @@ void solver_panel() {
         return;
 
 
+    #if USE_NEW_SOLVER
+    Crafting_Solver3::Solver_Context context = Crafting_Solver3::init_solver_context(
+    #else
     Crafting_Solver2::Solver_Context context = Crafting_Solver2::init_solver_context(
+    #endif
         seed,
         profile.active_actions,
         profile.level,
@@ -712,8 +717,13 @@ void solver_panel() {
     if (solver.running_sim) {
         auto start = Time::get_time();
         while (time < 0.005) {
-            for (int i = 0; i < 1000; i++)
+            for (int i = 0; i < 1000; i++) {
+                #if USE_NEW_SOLVER
+                Crafting_Solver3::execute_round(context);
+                #else
                 Crafting_Solver2::execute_round(context);
+                #endif
+            }
             time = (Time::get_time() - start) / (double)Time::get_frequency();
             iterations++;
         }
@@ -723,7 +733,11 @@ void solver_panel() {
     int max_quality = data.selected_recipe->quality;
 
     auto new_best = context.current_best;
+    #if USE_NEW_SOLVER
+    data.current_best = Crafting_Solver3::b_better_than_a(data.current_best, new_best) ? new_best : data.current_best;
+    #else
     data.current_best = Crafting_Solver2::b_better_than_a(data.current_best, new_best) ? new_best : data.current_best;
+    #endif
     auto current_result = data.current_best;
 
     int current_progress = max_progress - current_result.state.z;

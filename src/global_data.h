@@ -6,7 +6,11 @@
 #include "../generated_src/Recipes.h"
 #include <imgui/imgui.h>
 #include "crafting_solver2.h"
+#include "crafting_solver3.h"
 
+
+
+#define USE_NEW_SOLVER 1
 
 #define MAX_SIM_ACTIONS 100
 
@@ -45,7 +49,13 @@ extern struct Global_Data {
 
         struct {
             Recipe *selected_recipe = 0;
+
+            #if USE_NEW_SOLVER
+            Crafting_Solver3::Result current_best;
+            #else
             Crafting_Solver2::Result current_best;
+            #endif
+
         } per_job[NUM_JOBS];
 
         bool running_sim = false;

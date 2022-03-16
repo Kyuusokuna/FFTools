@@ -4,24 +4,17 @@
 
 namespace Crafting_Simulator {
     struct Context {
-        s32 craftsmanship;
-        s32 control;
-
         s32x4 initial_state;
         f32x4 base_change;
 
-        bool inner_quiet_active;
-        bool basic_synthesis_mastery;
-        bool careful_synthesis_mastery;
-        bool groundwork_mastery;
-
+        s32x4 state;
         // (Waste Not, Great Strides, Veneration, Innovation) (Manipulation, Muscle Memory, ---------, Inner Quiet)
         s16x8 turns;
 
-        s32x4 state;
         Craft_Action previous_action;
-
         s32 step;
+
+        s32 player_level;
     };
 
     Context init_context(s32 player_level,

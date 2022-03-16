@@ -5,9 +5,9 @@
 #include "time.h"
 
 namespace Crafting_Solver3 {
-    inline u32 pcg32_rand(u64 &state) {
+    inline u32 pcg32_rand(u64 &state, u64 inc) {
         u64 old_state = state;
-        state = state * 6364136223846793005ULL + 1442695040888963407ULL;
+        state = state * 6364136223846793005ULL + inc;
         return __builtin_rotateright32(((old_state >> 18u) ^ old_state) >> 27u, old_state >> 59u);
     }
 
@@ -54,7 +54,10 @@ namespace Crafting_Solver3 {
         s32 quality) {
         Solver_Context context = {};
 
-        context.seed = (0x912B8F17ULL << 32) + seed;
+        context.rng_inc = (seed << 1) | 1;
+        pcg32_rand(context.seed, context.rng_inc);
+        context.seed += 0x912B8F17E207D0F6ULL;
+        pcg32_rand(context.seed, context.rng_inc);
 
         context.current_best.seed = 0;
         context.current_best.state = s32x4(cp, durability, progress, quality);
@@ -125,7 +128,7 @@ namespace Crafting_Solver3 {
 
 
         for (int i = 0; i < MAX_SOLVE_LENGTH; i++) {
-            auto rand_val = pcg32_rand(context.seed);
+            auto rand_val = pcg32_rand(context.seed, context.rng_inc);
             Craft_Action action = context.active_actions_lookup_table[rand_val & 0x1F];
 
             if ((current_active_actions & CF_Standard_Touch) && action == CA_Basic_Touch && sim_context.previous_action == CA_Basic_Touch)
@@ -147,8 +150,8 @@ namespace Crafting_Solver3 {
             new_result.depth = i + 1;
 
             if (b_better_than_a(context.current_best, new_result)) {
-                for (int i = 0; i < MAX_SOLVE_LENGTH; i++)
-                    new_result.actions[i] = actions[i];
+                for (int j = 0; j < MAX_SOLVE_LENGTH; j++)
+                    new_result.actions[j] = actions[j];
                 context.current_best = new_result;
             }
         }

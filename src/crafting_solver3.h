@@ -19,6 +19,7 @@ namespace Crafting_Solver3 {
         Result current_best;
 
         u64 seed;
+        u64 rng_inc;
         u32 active_actions;
 
         Craft_Action active_actions_lookup_table[32];

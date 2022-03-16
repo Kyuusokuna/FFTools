@@ -7,7 +7,7 @@
 namespace Crafting_Solver2 {
 
     u32 xorshift128_star_star(u32x4 &state) {
-        #define rotl(x, k) ((x) << (k)) | ((x) >> (32 - (k)))
+        #define rotl(x, k) __builtin_rotateleft32(x, k)
         u32 result = rotl(state.y * 5, 7) * 9;
 
         u32 t = state.y << 9;

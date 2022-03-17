@@ -18,10 +18,10 @@ typedef struct {
     int32_t progress;
     int32_t quality;
     
-    int8_t progress_divider;
-    int8_t progress_modifier;
-    int8_t quality_divider;
-    int8_t quality_modifier;
+    uint8_t progress_divider;
+    uint8_t progress_modifier;
+    uint8_t quality_divider;
+    uint8_t quality_modifier;
     
     int8_t level;
 } Recipe;

@@ -189,10 +189,10 @@ struct Output_Recipe {
 	s32 progress;
 	s32 quality;
 
-	s8 progress_divider;
-	s8 progress_modifier;
-	s8 quality_divider;
-	s8 quality_modifier;
+	u8 progress_divider;
+	u8 progress_modifier;
+	u8 quality_divider;
+	u8 quality_modifier;
 
 	s8 level;
 };
@@ -749,10 +749,10 @@ int main(int argc, char **argv) {
 		write(recipes_header_file, "    int32_t progress;\n");
 		write(recipes_header_file, "    int32_t quality;\n");
 		write(recipes_header_file, "    \n");
-		write(recipes_header_file, "    int8_t progress_divider;\n");
-		write(recipes_header_file, "    int8_t progress_modifier;\n");
-		write(recipes_header_file, "    int8_t quality_divider;\n");
-		write(recipes_header_file, "    int8_t quality_modifier;\n");
+		write(recipes_header_file, "    uint8_t progress_divider;\n");
+		write(recipes_header_file, "    uint8_t progress_modifier;\n");
+		write(recipes_header_file, "    uint8_t quality_divider;\n");
+		write(recipes_header_file, "    uint8_t quality_modifier;\n");
 		write(recipes_header_file, "    \n");
 		write(recipes_header_file, "    int8_t level;\n");
 		write(recipes_header_file, "} Recipe;\n");
@@ -813,7 +813,7 @@ int main(int argc, char **argv) {
 		auto find_or_add_icon = [&](u32 id) -> Loaded_Icon &{ for (auto &icon : loaded_icons) if (icon.id == id) return icon; return loaded_icons.add({}); };
 
 		{
-			snprintf(filepath_buf, sizeof(filepath_buf), "data/textures/unknown_icon%s.png", ICON_SUFFIX);
+			snprintf(filepath_buf, sizeof(filepath_buf), "../data/textures/unknown_icon%s.png", ICON_SUFFIX);
 
 			s32 width = 0;
 			s32 height = 0;
@@ -940,7 +940,7 @@ int main(int argc, char **argv) {
 		expect(atlas_max_y % 4 == 0);
 
 		#if DEBUG_WRITE_TEXTURES_TO_BUILD
-		stbi_write_png("build/CA_Texture.png", ATLAS_DIMENSION, atlas_max_y, 4, atlas_image, 0);
+		stbi_write_png("../build/CA_Texture.png", ATLAS_DIMENSION, atlas_max_y, 4, atlas_image, 0);
 		#endif
 
 		for (int y = 0; y < atlas_max_y; y++) {
@@ -959,7 +959,7 @@ int main(int argc, char **argv) {
 
 		#if DEBUG_WRITE_TEXTURES_TO_BUILD
 		{
-			require_out_file(CA_Texture_dds, std::string("build/CA_Texture.dds"));
+			require_out_file(CA_Texture_dds, std::string("../build/CA_Texture.dds"));
 			write(CA_Texture_dds, "DDS ");
 
 			DDS_Header dds_header = {};

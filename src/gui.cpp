@@ -17,7 +17,7 @@
 #include "time.h"
 #include "../generated_src/compressed_data.h"
 
-#define SOLVER_SHOW_ITERATIONS_AND_TIME 1
+#define MAX_NUM_SOLVER_THREADS 64U
 
 Global_Data global_data;
 
@@ -659,6 +659,39 @@ void simulator_panel() {
     }
 }
 
+volatile u32 solvers_running;
+volatile u32 solver_context_generation;
+Crafting_Solver3::Solver_Context solver_context;
+
+struct Solver_Worker_Info {
+    u64 seed;
+    u32 result_context_generation;
+    Crafting_Solver3::Result result;
+};
+
+Solver_Worker_Info solver_worker_infos[MAX_NUM_SOLVER_THREADS];
+
+Crafting_Solver3::Result get_current_best_solver_result() {
+    u32 context_generation = solver_context_generation;
+    Crafting_Solver3::Result result = solver_context.current_best;
+
+    for (int i = 0; i < MAX_NUM_SOLVER_THREADS; i++) {
+        if (solver_worker_infos[i].result_context_generation != context_generation)
+            continue;
+
+        Crafting_Solver3::Result solver_result = solver_worker_infos[i].result;
+        if (Crafting_Solver3::b_better_than_a(result, solver_result))
+            result = solver_result;
+    }
+
+    return result;
+}
+
+void set_new_solver_context(Crafting_Solver3::Solver_Context &context) {
+    solver_context = context;
+    InterlockedIncrement(&solver_context_generation);
+}
+
 void solver_panel() {
     auto &solver = global_data.solver;
     static u32 seed = 0;
@@ -674,54 +707,44 @@ void solver_panel() {
         data.current_best.depth = INT32_MAX;
         data.current_best.state = s32x4(0, 0, INT_MAX, INT_MAX);
         seed = 0;
+
+        Crafting_Solver3::Solver_Context context = Crafting_Solver3::init_solver_context(
+            seed,
+            profile.active_actions,
+            profile.level,
+            profile.cp,
+            profile.craftsmanship,
+            profile.control,
+
+            data.selected_recipe->level,
+            data.selected_recipe->progress_divider,
+            data.selected_recipe->progress_modifier,
+            data.selected_recipe->quality_divider,
+            data.selected_recipe->quality_modifier,
+
+            data.selected_recipe->durability,
+            data.selected_recipe->progress,
+            data.selected_recipe->quality
+        );
+
+        set_new_solver_context(context);
     }
     if (!data.selected_recipe)
         return;
 
-    Crafting_Solver3::Solver_Context context = Crafting_Solver3::init_solver_context(
-        seed,
-        profile.active_actions,
-        profile.level,
-        profile.cp,
-        profile.craftsmanship,
-        profile.control,
-
-        data.selected_recipe->level,
-        data.selected_recipe->progress_divider,
-        data.selected_recipe->progress_modifier,
-        data.selected_recipe->quality_divider,
-        data.selected_recipe->quality_modifier,
-
-        data.selected_recipe->durability,
-        data.selected_recipe->progress,
-        data.selected_recipe->quality
-    );
-
-    if (!solver.running_sim) {
+    if (!solvers_running) {
         if (ImGui::Button("Start"))
-            solver.running_sim = !solver.running_sim;
+            solvers_running = 1;
     } else {
         seed++;
         if (ImGui::Button("Pause"))
-            solver.running_sim = !solver.running_sim;
-    }
-
-    double time = 0.0;
-    int32_t iterations = 0;
-    if (solver.running_sim) {
-        auto start = Time::get_time();
-        while (time < 0.005) {
-            for (int i = 0; i < 1000; i++) 
-                Crafting_Solver3::execute_round(context);
-            time = (Time::get_time() - start) / (double)Time::get_frequency();
-            iterations++;
-        }
+            solvers_running = 0;
     }
 
     int max_progress = data.selected_recipe->progress;
     int max_quality = data.selected_recipe->quality;
 
-    auto new_best = context.current_best;
+    auto new_best = get_current_best_solver_result();
     data.current_best = Crafting_Solver3::b_better_than_a(data.current_best, new_best) ? new_best : data.current_best;
 
     auto current_result = data.current_best;
@@ -744,12 +767,6 @@ void solver_panel() {
         ff_button_craft_action(ImGui::GetID(i), solver.selected_job, current_result.actions[i], previous_action, true, false, false, i != 0);
         previous_action = current_result.actions[i];
     }
-
-    #if SOLVER_SHOW_ITERATIONS_AND_TIME
-    ImGui::Text("Iterations: %d", iterations * 1000);
-    ImGui::Text("Time: %g ms", time * 1000.0);
-    ImGui::Text("Seed: %u", seed);
-    #endif
 
     if (current_result.depth) {
         ImGui::AlignTextToFramePadding();
@@ -824,14 +841,59 @@ bool GUI::per_frame() {
 
     ImGui::PopStyleVar();
 
-
-
     return false;
 }
+
+void solver_worker(Solver_Worker_Info *info) {
+    u64 context_generation = 0;
+    Crafting_Solver3::Solver_Context context; 
+    Crafting_Solver3::Result result;
+
+    u64 iterations_with_current_seed = 0;
+
+    for (;;) {
+        Sleep(500);
+
+        while (solvers_running) {
+            u32 new_context_generation = solver_context_generation;
+            if (new_context_generation != context_generation) {
+                context_generation = new_context_generation;
+                context = solver_context;
+                result.depth = 0;
+                result.state = context.sim_context.state;
+                Crafting_Solver3::re_seed(context, info->seed);
+            }
+
+            for (int i = 0; i < 50000; i++)
+                Crafting_Solver3::execute_round(context);
+            iterations_with_current_seed++;
+
+            if (iterations_with_current_seed >= 500) {
+                Crafting_Solver3::re_seed(context, (context.rng_inc >> 1) + MAX_NUM_SOLVER_THREADS);
+                iterations_with_current_seed = 0;
+            }
+
+            if (context_generation != info->result_context_generation|| Crafting_Solver3::b_better_than_a(info->result, context.current_best)) {
+                info->result = context.current_best;
+                InterlockedExchange(&info->result_context_generation, context_generation);
+            }
+        }
+    }
+}
+
+#include <thread>
 
 const char *GUI::init(ID3D11Device *device) {
     if (!decompress_all_data())
         return "Failed to decompress required data.";
+
+    u32 num_solver_threads_to_start = std::min(std::max(1U, std::thread::hardware_concurrency() * 3 / 4), MAX_NUM_SOLVER_THREADS);
+    printf("INFO: Starting %u solver threads.\n", num_solver_threads_to_start);
+
+    for (int i = 0; i < num_solver_threads_to_start; i++) {
+        solver_worker_infos[i].seed = i;
+        std::thread(solver_worker, &solver_worker_infos[i]).detach();
+    }
 
     ImGui::StyleColorsDark();
     auto &io = ImGui::GetIO();
@@ -903,7 +965,6 @@ const char *GUI::init(ID3D11Device *device) {
         }
     };
     context.SettingsHandlers.push_back(profile_handler);
-
 
     return 0;
 }

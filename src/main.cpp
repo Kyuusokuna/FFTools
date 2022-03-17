@@ -11,7 +11,12 @@
 #include <imgui/imgui_impl_win32.h>
 #include <imgui/imgui_impl_dx11.h>
 #include <imgui/imgui_internal.h>
+
+#ifndef PUBLISH
 #include <renderdoc/renderdoc.h>
+#endif
+
+
 #include "gui.h"
 #include "Threading.h"
 
@@ -85,7 +90,9 @@ int main(int argc, char **argv) {
 //#pragma comment(lib, "clang-rt.lib")
 
 int imgui_main() {
+    #ifndef PUBLISH
     Renderdoc::init();
+    #endif
 
     // Initialize Direct3D
     if (!CreateDeviceD3D(hwnd)) {

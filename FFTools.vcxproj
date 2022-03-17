@@ -233,7 +233,6 @@
     <ClCompile Include="libs\imgui\imgui_widgets.cpp" />
     <ClCompile Include="libs\miniz\miniz.c" />
     <ClCompile Include="src\main.cpp" />
-    <ClCompile Include="libs\renderdoc\renderdoc.cpp" />
     <ClCompile Include="src\string.cpp" />
     <ClCompile Include="src\Threading_win32.cpp" />
     <ClCompile Include="src\time_win32.cpp" />

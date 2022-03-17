@@ -24,9 +24,6 @@
     <ClCompile Include="src\time_win32.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="libs\renderdoc\renderdoc.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="src\string.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

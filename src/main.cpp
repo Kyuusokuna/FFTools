@@ -12,7 +12,6 @@
 #include <imgui/imgui_impl_dx11.h>
 #include <imgui/imgui_internal.h>
 #include <renderdoc/renderdoc.h>
-#include <superluminal/PerformanceAPI.h>
 #include "gui.h"
 #include "Threading.h"
 
@@ -45,8 +44,6 @@ DWORD gui_thread;
 #include <intrin.h>
 
 int main(int argc, char **argv) {
-    PerformanceAPI_SetCurrentThreadName("Message Loop Thread");
-
     // Create application window
     ImGui_ImplWin32_EnableDpiAwareness();
     WNDCLASSEXW wc = { sizeof(WNDCLASSEX), CS_CLASSDC, MainWndProc, 0L, 0L, GetModuleHandleW(NULL), NULL, NULL, NULL, NULL, L"FFTools", NULL };
@@ -66,8 +63,6 @@ int main(int argc, char **argv) {
 
     bool done = false;
     while (!done && WaitForSingleObject(gui_thread_handle, 0) != WAIT_OBJECT_0) {
-        PERFORMANCEAPI_INSTRUMENT("Process Messages");
-
         HANDLE wait_handles[] = { gui_thread_handle };
         MsgWaitForMultipleObjects(IM_ARRAYSIZE(wait_handles), wait_handles, FALSE, 2000, QS_ALLINPUT | QS_ALLPOSTMESSAGE);
 
@@ -90,8 +85,6 @@ int main(int argc, char **argv) {
 //#pragma comment(lib, "clang-rt.lib")
 
 int imgui_main() {
-    PerformanceAPI_SetCurrentThreadName("GUI Thread");
-
     Renderdoc::init();
 
     // Initialize Direct3D
@@ -124,15 +117,12 @@ int imgui_main() {
     // Main loop
     bool done = false;
     while (!done) {
-        PERFORMANCEAPI_INSTRUMENT("Frame Loop");
         // Poll and handle messages (inputs, window resize, etc.)
         // You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui wants to use your inputs.
         // - When io.WantCaptureMouse is true, do not dispatch mouse input data to your main application.
         // - When io.WantCaptureKeyboard is true, do not dispatch keyboard input data to your main application.
         // Generally you may always pass all inputs to dear imgui, and hide them from your application based on those two flags.
         {
-            PERFORMANCEAPI_INSTRUMENT("Process Messages");
-
             MSG msg;
             while (::PeekMessageW(&msg, NULL, 0U, 0U, PM_REMOVE)) {
                 ::TranslateMessage(&msg);

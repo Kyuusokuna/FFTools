@@ -1,7 +1,6 @@
 #include "crafting_solver3.h"
 #include <assert.h>
 #include <string.h>
-#include <superluminal/PerformanceAPI.h>
 #include "time.h"
 
 namespace Crafting_Solver3 {
@@ -118,8 +117,6 @@ namespace Crafting_Solver3 {
     }
 
     void execute_round(Solver_Context &context) {
-        PERFORMANCEAPI_INSTRUMENT_FUNCTION();
-
         if (!context.active_actions)
             return;
 

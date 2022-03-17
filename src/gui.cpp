@@ -1,7 +1,6 @@
 #include "gui.h"
 #include "d3d11_util.h"
 #include <imgui/imgui.h>
-#include <superluminal/PerformanceAPI.h>
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include <imgui/imgui_internal.h>
 //#include "../data/CA_Texture.h"
@@ -802,8 +801,6 @@ void solver_panel() {
 }
 
 bool GUI::per_frame() {
-    PERFORMANCEAPI_INSTRUMENT("per_frame");
-
     ImGuiStyle &style = ImGui::GetStyle();
 
     global_data.button_size = ImGui::GetFrameHeight() * 2;

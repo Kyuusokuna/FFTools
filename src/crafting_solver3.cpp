@@ -34,6 +34,13 @@ namespace Crafting_Solver3 {
         return s - 1;
     }
 
+    void re_seed(Solver_Context &context, u64 seed) {
+        context.rng_inc = (seed << 1) | 1;
+        pcg32_rand(context.seed, context.rng_inc);
+        context.seed += 0x912B8F17E207D0F6ULL;
+        pcg32_rand(context.seed, context.rng_inc);
+    }
+
     Solver_Context init_solver_context(
         u32 seed,
         u32 active_actions,
@@ -54,12 +61,8 @@ namespace Crafting_Solver3 {
         s32 quality) {
         Solver_Context context = {};
 
-        context.rng_inc = (seed << 1) | 1;
-        pcg32_rand(context.seed, context.rng_inc);
-        context.seed += 0x912B8F17E207D0F6ULL;
-        pcg32_rand(context.seed, context.rng_inc);
+        re_seed(context, seed);
 
-        context.current_best.seed = 0;
         context.current_best.state = s32x4(cp, durability, progress, quality);
         context.current_best.depth = 0;
 

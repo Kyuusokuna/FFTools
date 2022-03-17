@@ -8,9 +8,8 @@
 
 namespace Crafting_Solver3 {
     struct Result {
-        u64 seed;
         s32x4 state;
-        int depth;
+        u32 depth;
         Craft_Action actions[MAX_SOLVE_LENGTH];
     };
 
@@ -45,6 +44,7 @@ namespace Crafting_Solver3 {
         s32 quality
     );
 
+    void re_seed(Solver_Context &context, u64 seed);
     void execute_round(Solver_Context &context);
     bool b_better_than_a(Result a, Result b);
 

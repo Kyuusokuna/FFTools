@@ -230,7 +230,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\crafting_simulator.cpp" />
-    <ClCompile Include="src\crafting_solver2.cpp" />
     <ClCompile Include="src\crafting_solver3.cpp" />
     <ClCompile Include="src\Craft_Actions.cpp" />
     <ClCompile Include="src\solver_performance.cpp" />
@@ -239,7 +238,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\crafting_simulator.h" />
-    <ClInclude Include="src\crafting_solver2.h" />
     <ClInclude Include="src\crafting_solver3.h" />
     <ClInclude Include="src\Craft_Actions.h" />
     <ClInclude Include="src\string.h" />

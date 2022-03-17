@@ -21,9 +21,6 @@
     <ClCompile Include="src\time_win32.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\crafting_solver2.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="src\crafting_simulator.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -42,9 +39,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\types.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="src\crafting_solver2.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\crafting_simulator.h">

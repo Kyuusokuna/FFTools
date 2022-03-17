@@ -30,9 +30,6 @@
     <ClCompile Include="src\string.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\crafting_solver2.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="libs\imgui\imgui.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -114,9 +111,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\string.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="src\crafting_solver2.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="libs\renderdoc\renderdoc_app.h">

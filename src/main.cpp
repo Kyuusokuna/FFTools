@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <Windows.h>
 #include <d3d11_1.h>
+#include <tchar.h>
 
 #ifdef NDEBUG
 #undef assert
@@ -39,22 +40,20 @@ LRESULT WINAPI MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 ImVec4 clear_color = ImVec4(0.192f, 0.192f, 0.192f, 1.00f);
 
-extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
-
 int imgui_main();
 
+bool done;
+u64 size_lparam;
 HWND hwnd;
 DWORD gui_thread;
-
-#include <intrin.h>
 
 int main(int argc, char **argv) {
     // Create application window
     ImGui_ImplWin32_EnableDpiAwareness();
-    WNDCLASSEXW wc = { sizeof(WNDCLASSEX), CS_CLASSDC, MainWndProc, 0L, 0L, GetModuleHandleW(NULL), NULL, NULL, NULL, NULL, L"FFTools", NULL };
-    ::RegisterClassExW(&wc);
-    hwnd = ::CreateWindowExW(WS_EX_NOREDIRECTIONBITMAP, wc.lpszClassName, L"FFTools", WS_OVERLAPPEDWINDOW, 100, 100, 1280, 800, NULL, NULL, wc.hInstance, NULL);
-    
+    WNDCLASSEX wc = { sizeof(WNDCLASSEX), CS_CLASSDC, MainWndProc, 0L, 0L, GetModuleHandle(NULL), NULL, NULL, NULL, NULL, _T("FFTools"), NULL };
+    ::RegisterClassEx(&wc);
+    hwnd = ::CreateWindowEx(WS_EX_NOREDIRECTIONBITMAP, wc.lpszClassName, _T("FFTools"), WS_OVERLAPPEDWINDOW, 100, 100, 1280, 800, NULL, NULL, wc.hInstance, NULL);
+
     if (!hwnd) {
         printf("Error: CreateWindowExW failed with code %lx.\n", GetLastError());
         return 1;
@@ -66,8 +65,7 @@ int main(int argc, char **argv) {
 
     auto gui_thread_handle = CreateThread(0, 0, (LPTHREAD_START_ROUTINE)imgui_main, 0, 0, &gui_thread);
 
-    bool done = false;
-    while (!done && WaitForSingleObject(gui_thread_handle, 0) != WAIT_OBJECT_0) {
+    while (WaitForSingleObject(gui_thread_handle, 0) != WAIT_OBJECT_0) {
         HANDLE wait_handles[] = { gui_thread_handle };
         MsgWaitForMultipleObjects(IM_ARRAYSIZE(wait_handles), wait_handles, FALSE, 2000, QS_ALLINPUT | QS_ALLPOSTMESSAGE);
 
@@ -75,19 +73,13 @@ int main(int argc, char **argv) {
         while (::PeekMessageW(&msg, NULL, 0U, 0U, PM_REMOVE)) {
             ::TranslateMessage(&msg);
             ::DispatchMessageW(&msg);
-            if (msg.message == WM_QUIT)
-                done = true;
         }
-        if (done)
-            break;
     }
 
     WaitForSingleObject(gui_thread_handle, 30000);
 
     return 0;
 }
-
-//#pragma comment(lib, "clang-rt.lib")
 
 int imgui_main() {
     #ifndef PUBLISH
@@ -121,42 +113,16 @@ int imgui_main() {
     bool show_demo_window = false;
     #endif
 
+    u64 last_size_lparam = 0;
+
     // Main loop
-    bool done = false;
     while (!done) {
-        // Poll and handle messages (inputs, window resize, etc.)
-        // You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui wants to use your inputs.
-        // - When io.WantCaptureMouse is true, do not dispatch mouse input data to your main application.
-        // - When io.WantCaptureKeyboard is true, do not dispatch keyboard input data to your main application.
-        // Generally you may always pass all inputs to dear imgui, and hide them from your application based on those two flags.
-        {
-            MSG msg;
-            while (::PeekMessageW(&msg, NULL, 0U, 0U, PM_REMOVE)) {
-                ::TranslateMessage(&msg);
-                ::DispatchMessageW(&msg);
-
-                if (ImGui_ImplWin32_WndProcHandler(hwnd, msg.message, msg.wParam, msg.lParam))
-                    continue;
-
-                switch (msg.message) {
-                    case WM_SIZE:
-                        if (g_pd3dDevice != NULL && msg.wParam != SIZE_MINIMIZED) {
-                            CleanupRenderTarget();
-                            g_pSwapChain->ResizeBuffers(0, (UINT)LOWORD(msg.lParam), (UINT)HIWORD(msg.lParam), DXGI_FORMAT_UNKNOWN, 0);
-                            CreateRenderTarget();
-                        }
-                        break;
-
-                    case WM_CLOSE:
-                    case WM_DESTROY:
-                        done = true;
-                        break;
-                }
-            }
+        if (size_lparam != last_size_lparam) {
+            last_size_lparam = size_lparam;
+            CleanupRenderTarget();
+            g_pSwapChain->ResizeBuffers(0, (UINT)LOWORD(last_size_lparam), (UINT)HIWORD(last_size_lparam), DXGI_FORMAT_UNKNOWN, 0);
+            CreateRenderTarget();
         }
-
-        if (done)
-            break;
 
         // Start the Dear ImGui frame
         ImGui_ImplDX11_NewFrame();
@@ -225,7 +191,7 @@ bool CreateDeviceD3D(HWND hWnd) {
     sd.SampleDesc.Quality = 0;
     sd.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
     sd.Scaling = DXGI_SCALING_NONE;
-    
+
     UINT createDeviceFlags = 0;
     #ifdef _DEBUG
     createDeviceFlags |= D3D11_CREATE_DEVICE_DEBUG;
@@ -236,8 +202,8 @@ bool CreateDeviceD3D(HWND hWnd) {
         return false;
 
     IDXGIDevice1 *device = 0;
-    if(g_pd3dDevice->QueryInterface(IID_PPV_ARGS(&device)) != S_OK)
-       return false;
+    if (g_pd3dDevice->QueryInterface(IID_PPV_ARGS(&device)) != S_OK)
+        return false;
 
     device->SetMaximumFrameLatency(1);
 
@@ -286,52 +252,37 @@ void CleanupRenderTarget() {
     if (g_mainRenderTargetView) { g_mainRenderTargetView->Release(); g_mainRenderTargetView = NULL; }
 }
 
-extern bool ImGui_ImplWin32_UpdateMouseCursor();
+// Forward declare message handler from imgui_impl_win32.cpp
+extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
-LRESULT WINAPI MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-    switch (msg) {
-        case WM_CLOSE:
-        case WM_DESTROY:
-            PostThreadMessageW(gui_thread, msg, wParam, lParam);
-            PostQuitMessage(0);
-            break;
+// Win32 message handler
+// You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui wants to use your inputs.
+// - When io.WantCaptureMouse is true, do not dispatch mouse input data to your main application, or clear/overwrite your copy of the mouse data.
+// - When io.WantCaptureKeyboard is true, do not dispatch keyboard input data to your main application, or clear/overwrite your copy of the keyboard data.
+// Generally you may always pass all inputs to dear imgui, and hide them from your application based on those two flags.
+LRESULT WINAPI MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+    if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam))
+        return true;
 
-        case WM_SYSCOMMAND:
-            if ((wParam & 0xfff0) == SC_KEYMENU) // Disable ALT application menu
-                return 0;
-            break;
-
-        case WM_SETCURSOR:
-            if(GImGui)
-                if (LOWORD(lParam) == HTCLIENT && ImGui_ImplWin32_UpdateMouseCursor())
-                    return 1;
-            break;
-
-        case WM_MOUSEMOVE:
-        case WM_MOUSELEAVE:
-        case WM_LBUTTONDOWN: case WM_LBUTTONDBLCLK:
-        case WM_RBUTTONDOWN: case WM_RBUTTONDBLCLK:
-        case WM_MBUTTONDOWN: case WM_MBUTTONDBLCLK:
-        case WM_XBUTTONDOWN: case WM_XBUTTONDBLCLK:
-        case WM_LBUTTONUP:
-        case WM_RBUTTONUP:
-        case WM_MBUTTONUP:
-        case WM_XBUTTONUP:
-        case WM_MOUSEWHEEL:
-        case WM_MOUSEHWHEEL:
-        case WM_KEYDOWN:
-        case WM_KEYUP:
-        case WM_SYSKEYDOWN:
-        case WM_SYSKEYUP:
-        case WM_KILLFOCUS:
-        case WM_CHAR:
-        case WM_DEVICECHANGE:
-        case WM_SIZE:
-            PostThreadMessage(gui_thread, msg, wParam, lParam);
-            break;
+    switch (msg)
+    {
+    case WM_SIZE:
+        if (g_pd3dDevice != NULL && wParam != SIZE_MINIMIZED)
+        {
+            size_lparam = lParam;
+        }
+        return 0;
+    case WM_SYSCOMMAND:
+        if ((wParam & 0xfff0) == SC_KEYMENU) // Disable ALT application menu
+            return 0;
+        break;
+    case WM_DESTROY:
+        ::PostQuitMessage(0);
+        done = true;
+        return 0;
     }
-
-    return DefWindowProc(hWnd, msg, wParam, lParam);;
+    return ::DefWindowProc(hWnd, msg, wParam, lParam);
 }
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd) {

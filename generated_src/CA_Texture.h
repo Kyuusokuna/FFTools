@@ -8,8 +8,7 @@ extern "C" {
 #endif
 
 typedef enum : u8 {
-    FFUI_ActionButton_Disabled,
-    FFUI_ActionButton_Enabled,
+    FFUI_ActionButton_Filled,
     FFUI_ActionButton_Empty,
     FFUI_ActionButton_Selected,
     
@@ -29,13 +28,13 @@ extern const f32x4 Craft_Action_Icon_uvs[NUM_JOBS][NUM_ACTIONS];
 extern const f32x4 FFUI_uvs[NUM_FFUI_UVS];
 
 #define CA_TEXTURE_WIDTH (960)
-#define CA_TEXTURE_HEIGHT (808)
+#define CA_TEXTURE_HEIGHT (800)
 #define CA_TEXTURE_MIP_LEVELS (1)
 #define CA_TEXTURE_ARRAY_SIZE (1)
 #define CA_TEXTURE_FORMAT (98)
 #define CA_TEXTURE_PIXEL_DATA (CA_TEXTURE_pixel_data)
 
-extern unsigned char CA_TEXTURE_pixel_data[775680];
+extern unsigned char CA_TEXTURE_pixel_data[768000];
 
 extern bool Textures_decompress();
 

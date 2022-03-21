@@ -882,9 +882,8 @@ int main(int argc, char **argv) {
 		auto FFUI_Button_middle = load_texture("../data/textures/Button/middle.png");
 		auto FFUI_Button_right  = load_texture("../data/textures/Button/right.png");
 
-		auto FFUI_ActionButton_Disabled = load_texture("../data/textures/ActionButton/Disabled.png");
 		auto FFUI_ActionButton_Empty    = load_texture("../data/textures/ActionButton/Empty.png");
-		auto FFUI_ActionButton_Enabled  = load_texture("../data/textures/ActionButton/Enabled.png");
+		auto FFUI_ActionButton_Filled  = load_texture("../data/textures/ActionButton/Filled.png");
 		auto FFUI_ActionButton_Selected = load_texture("../data/textures/ActionButton/Selected.png");
 
 		auto FFUI_Checkbox_checked   = load_texture("../data/textures/Checkbox/checked.png");
@@ -1007,8 +1006,7 @@ int main(int argc, char **argv) {
 		write(CA_Texture_header_file, "%s", cpp_guard_header);
 		write(CA_Texture_header_file, "\n");
 		write(CA_Texture_header_file, "typedef enum : u8 {\n");
-		write(CA_Texture_header_file, "    FFUI_ActionButton_Disabled,\n");
-		write(CA_Texture_header_file, "    FFUI_ActionButton_Enabled,\n");
+		write(CA_Texture_header_file, "    FFUI_ActionButton_Filled,\n");
 		write(CA_Texture_header_file, "    FFUI_ActionButton_Empty,\n");
 		write(CA_Texture_header_file, "    FFUI_ActionButton_Selected,\n");
 		write(CA_Texture_header_file, "    \n");
@@ -1066,8 +1064,7 @@ int main(int argc, char **argv) {
 		write(CA_Texture_code_file, "};\n");
 		write(CA_Texture_code_file, "\n");
 		write(CA_Texture_code_file, "const f32x4 FFUI_uvs[NUM_FFUI_UVS] = {\n\n");
-		write(CA_Texture_code_file, "    [FFUI_ActionButton_Disabled] = { %f, %f, %f, %f },\n", UVS(find_uvs_for_texture(FFUI_ActionButton_Disabled)));
-		write(CA_Texture_code_file, "    [FFUI_ActionButton_Enabled] = { %f, %f, %f, %f },\n", UVS(find_uvs_for_texture(FFUI_ActionButton_Enabled)));
+		write(CA_Texture_code_file, "    [FFUI_ActionButton_Filled] = { %f, %f, %f, %f },\n", UVS(find_uvs_for_texture(FFUI_ActionButton_Filled)));
 		write(CA_Texture_code_file, "    [FFUI_ActionButton_Empty] = { %f, %f, %f, %f },\n", UVS(find_uvs_for_texture(FFUI_ActionButton_Empty)));
 		write(CA_Texture_code_file, "    [FFUI_ActionButton_Selected] = { %f, %f, %f, %f },\n", UVS(find_uvs_for_texture(FFUI_ActionButton_Selected)));
 		write(CA_Texture_code_file, "    \n");

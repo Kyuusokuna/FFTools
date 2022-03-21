@@ -249,12 +249,12 @@ void FFUI_draw_ActionButton_internal(Registered_Button button, ImTextureID textu
     ImRect slot_bb = button.bb;
     ImRect selection_bb = ImRect(button.bb.Min - selection_size / 2.0f, button.bb.Max + selection_size / 2.0f);
 
-    button.draw_list->AddImage(texture, image_bb.Min, image_bb.Max, uv.xy, uv.zw, 0xffffffff);
+    button.draw_list->AddImage(texture, image_bb.Min, image_bb.Max, uv.xy, uv.zw, enabled ? 0xffffffff : 0xff3f3f3f);
 
     if (button.hovered)
         button.draw_list->AddRectFilled(image_bb.Min, image_bb.Max, 0x3fffffff);
 
-    f32x4 slot_uvs = FFUI_uvs[enabled ? FFUI_ActionButton_Enabled : FFUI_ActionButton_Disabled];
+    f32x4 slot_uvs = FFUI_uvs[FFUI_ActionButton_Filled];
     button.draw_list->AddImage(global_data.actions_texture, slot_bb.Min, slot_bb.Max, slot_uvs.xy, slot_uvs.zw, 0xffffffff);
 
     if (/*hovered ||*/ selected) {

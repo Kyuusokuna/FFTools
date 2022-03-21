@@ -79,6 +79,76 @@ struct Registered_Button {
     bool held;
 };
 
+bool FFUI_Button(const char *label, bool same_line_if_enough_space = true, bool extend_to_label_width = false) {
+    ImGuiWindow *window = ImGui::GetCurrentWindow();
+    if (window->SkipItems)
+        return false;
+
+    ImGuiStyle &style = GImGui->Style;
+    ImGuiID id = window->GetID(label);
+
+    ImVec2 label_size = ImGui::CalcTextSize(label, NULL, true);
+    f32 height = label_size.y * 1.75f;
+
+    ImVec2 left_size = ImVec2(height * 24.0f / 52.0f, height);
+    ImVec2 right_size = ImVec2(height * 24.0f / 52.0f, height);
+    ImVec2 middle_size = ImVec2(ImGui::GetFontSize() * 6.0f, height);
+
+    if (extend_to_label_width)
+        middle_size.x = label_size.x;
+
+    if (same_line_if_enough_space)
+        PreferredSameLine(left_size.x + middle_size.x + right_size.x);
+
+    ImVec2 pos = window->DC.CursorPos;
+
+    ImVec2 left_start = pos;
+    ImVec2 middle_start = ImVec2(pos.x + left_size.x, pos.y);
+    ImVec2 right_start = ImVec2(pos.x + left_size.x + middle_size.x, pos.y);
+
+    ImRect left_bb = ImRect(left_start, left_start + left_size);
+    ImRect right_bb = ImRect(right_start, right_start + right_size);
+    ImRect middle_bb = ImRect(middle_start, middle_start + middle_size);
+
+    f32 width = left_size.x + middle_size.x + right_size.x;
+
+    ImRect bb(pos, ImVec2(pos.x + width, pos.y + height));
+
+    //if ((flags & ImGuiButtonFlags_AlignTextBaseLine) && style.FramePadding.y < window->DC.CurrLineTextBaseOffset) // Try to vertically align buttons that are smaller/have no padding so that text baseline matches (bit hacky, since it shouldn't be a flag)
+    //    pos.y += window->DC.CurrLineTextBaseOffset - style.FramePadding.y;
+    //ImVec2 size = CalcItemSize(size_arg, label_size.x + style.FramePadding.x * 2.0f, label_size.y + style.FramePadding.y * 2.0f);
+
+    ImGui::ItemSize(bb);
+    if (!ImGui::ItemAdd(bb, id))
+        return false;
+
+    bool hovered, held;
+    bool pressed = ImGui::ButtonBehavior(bb, id, &hovered, &held);
+
+    if (hovered)
+        ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+
+    ImGui::RenderNavHighlight(bb, id);
+
+    ImDrawList *draw_list = window->DrawList;
+
+    f32x4 left_uvs = FFUI_uvs[FFUI_Button_left];
+    f32x4 middle_uvs = FFUI_uvs[FFUI_Button_middle];
+    f32x4 right_uvs = FFUI_uvs[FFUI_Button_right];
+
+    draw_list->AddImage(global_data.actions_texture, left_bb.Min, left_bb.Max, left_uvs.xy, left_uvs.zw, 0xffffffff);
+    draw_list->AddImage(global_data.actions_texture, middle_bb.Min, middle_bb.Max, middle_uvs.xy, middle_uvs.zw, 0xffffffff);
+    draw_list->AddImage(global_data.actions_texture, right_bb.Min, right_bb.Max, right_uvs.xy, right_uvs.zw, 0xffffffff);
+
+    ImVec2 text_start = ImVec2(middle_start.x, middle_start.y + middle_size.y * 0.1f);
+
+    //draw_list->AddText(text_start, 0xffffffff, label);
+
+    ImGui::RenderTextClipped(middle_bb.Min, middle_bb.Max, label, NULL, &label_size, style.ButtonTextAlign, &middle_bb);
+
+    return pressed;
+}
+
 Registered_Button FFUI_register_ActionButton(ImGuiID id, bool same_line_if_enough_space = true) {
     Registered_Button result = {};
     result.id = id;
@@ -90,9 +160,7 @@ Registered_Button FFUI_register_ActionButton(ImGuiID id, bool same_line_if_enoug
     if (window->SkipItems)
         return result;
 
-    ImGuiStyle &style = GImGui->Style;
     ImVec2 pos = window->DC.CursorPos;
-
     ImRect bb(pos, ImVec2(pos.x + global_data.button_size, pos.y + global_data.button_size));
 
     ImGui::ItemSize(bb);
@@ -381,8 +449,7 @@ bool recipe_selector(Craft_Job job, Recipe *&selected_recipe) {
 
     ImGui::AlignTextToFramePadding();
     ImGui::TextUnformatted("Recipe: ");
-    PreferredSameLine(CalcButtonWidth(Item_to_name[selected_recipe->result].data));
-    if (ImGui::Button(Item_to_name[selected_recipe->result].data))
+    if (FFUI_Button(Item_to_name[selected_recipe->result].data, true, true))
         selected_recipe = 0;
 
     return false;
@@ -456,13 +523,11 @@ void setup_panel() {
     ImGui::AlignTextToFramePadding();
     ImGui::TextUnformatted("Activate:");
 
-    PreferredSameLine(CalcButtonWidth("None"));
-    if (ImGui::Button("None")) {
+    if (FFUI_Button("None")) {
         profile.active_actions = 0;
     }
 
-    PreferredSameLine(CalcButtonWidth("by Level"));
-    if (ImGui::Button("by Level")) {
+    if (FFUI_Button("by Level")) {
         profile.active_actions = 0;
 
         for (int i = 0; i < NUM_ACTIONS; i++) {
@@ -471,8 +536,7 @@ void setup_panel() {
         }
     }
 
-    PreferredSameLine(CalcButtonWidth("All"));
-    if (ImGui::Button("All")) {
+    if (FFUI_Button("All")) {
         profile.active_actions = 0;
 
         for (int i = 0; i < NUM_ACTIONS; i++)
@@ -617,8 +681,7 @@ void simulator_panel() {
         ImGui::AlignTextToFramePadding();
         ImGui::TextUnformatted("Copy to Clipboard: ");
 
-        PreferredSameLine(CalcButtonWidth("Teamcraft"));
-        if (ImGui::Button("Teamcraft"))
+        if (FFUI_Button("Teamcraft"))
             copy_actions_to_clipboard_teamcraft(data.actions, data.num_actions);
 
         char macro_buf[16] = {};
@@ -627,8 +690,7 @@ void simulator_panel() {
 
         while (actions_left) {
             snprintf(macro_buf, sizeof(macro_buf), data.num_actions > global_data.lines_per_macro ? "Macro %d" : "Macro", current_macro + 1);
-            PreferredSameLine(CalcButtonWidth(macro_buf));
-            if (ImGui::Button(macro_buf))
+            if (FFUI_Button(macro_buf))
                 copy_actions_to_clipboard_macro(data.actions + current_macro * global_data.lines_per_macro, clamp(actions_left, 0, global_data.lines_per_macro));
 
             current_macro++;
@@ -728,11 +790,11 @@ void solver_panel() {
         return;
 
     if (!solvers_running) {
-        if (ImGui::Button("Start"))
+        if (FFUI_Button("Start", false))
             solvers_running = 1;
     } else {
         seed++;
-        if (ImGui::Button("Pause"))
+        if (FFUI_Button("Pause", false))
             solvers_running = 0;
     }
 
@@ -767,8 +829,7 @@ void solver_panel() {
         ImGui::AlignTextToFramePadding();
         ImGui::TextUnformatted("Copy to Clipboard: ");
 
-        PreferredSameLine(CalcButtonWidth("Teamcraft"));
-        if (ImGui::Button("Teamcraft"))
+        if (FFUI_Button("Teamcraft"))
             copy_actions_to_clipboard_teamcraft(current_result.actions, current_result.depth);
 
         char macro_buf[16] = {};
@@ -777,8 +838,7 @@ void solver_panel() {
 
         while (actions_left) {
             snprintf(macro_buf, sizeof(macro_buf), current_result.depth > global_data.lines_per_macro ? "Macro %d" : "Macro", current_macro + 1);
-            PreferredSameLine(CalcButtonWidth(macro_buf));
-            if (ImGui::Button(macro_buf))
+            if (FFUI_Button(macro_buf))
                 copy_actions_to_clipboard_macro(current_result.actions + current_macro * global_data.lines_per_macro, clamp(actions_left, 0, global_data.lines_per_macro));
 
             current_macro++;
@@ -786,7 +846,7 @@ void solver_panel() {
         }
     }
 
-    if (ImGui::Button("Edit in Simulator")) {
+    if (FFUI_Button("Edit in Simulator", false, true)) {
         auto &sim = global_data.simulator;
         sim.selected_job = solver.selected_job;
         sim.per_job[sim.selected_job].num_actions = current_result.depth;

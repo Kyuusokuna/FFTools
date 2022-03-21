@@ -831,6 +831,9 @@ int main(int argc, char **argv) {
 				exit(1);
 			}
 
+			expect(loaded_texture.width % 4 == 0);
+			expect(loaded_texture.height % 4 == 0);
+
 			return index;
 		};
 
@@ -875,14 +878,17 @@ int main(int argc, char **argv) {
 			}
 		}
 
-		auto FFUI_Button_left = load_texture("../data/textures/Button/left.png");
+		auto FFUI_Button_left   = load_texture("../data/textures/Button/left.png");
 		auto FFUI_Button_middle = load_texture("../data/textures/Button/middle.png");
-		auto FFUI_Button_right = load_texture("../data/textures/Button/right.png");
+		auto FFUI_Button_right  = load_texture("../data/textures/Button/right.png");
 
 		auto FFUI_ActionButton_Disabled = load_texture("../data/textures/ActionButton/Disabled.png");
-		auto FFUI_ActionButton_Empty = load_texture("../data/textures/ActionButton/Empty.png");
-		auto FFUI_ActionButton_Enabled = load_texture("../data/textures/ActionButton/Enabled.png");
+		auto FFUI_ActionButton_Empty    = load_texture("../data/textures/ActionButton/Empty.png");
+		auto FFUI_ActionButton_Enabled  = load_texture("../data/textures/ActionButton/Enabled.png");
 		auto FFUI_ActionButton_Selected = load_texture("../data/textures/ActionButton/Selected.png");
+
+		auto FFUI_Checkbox_checked   = load_texture("../data/textures/Checkbox/checked.png");
+		auto FFUI_Checkbox_unchecked = load_texture("../data/textures/Checkbox/unchecked.png");
 
 
 		stbrp_context rect_packing_context = {};
@@ -1010,6 +1016,9 @@ int main(int argc, char **argv) {
 		write(CA_Texture_header_file, "    FFUI_Button_middle,\n");
 		write(CA_Texture_header_file, "    FFUI_Button_right,\n");
 		write(CA_Texture_header_file, "    \n");
+		write(CA_Texture_header_file, "    FFUI_Checkbox_checked,\n");
+		write(CA_Texture_header_file, "    FFUI_Checkbox_unchecked,\n");
+		write(CA_Texture_header_file, "    \n");
 		write(CA_Texture_header_file, "    NUM_FFUI_UVS,\n");
 		write(CA_Texture_header_file, "} FFUI_uv_type;\n");
 		write(CA_Texture_header_file, "\n");
@@ -1065,6 +1074,9 @@ int main(int argc, char **argv) {
 		write(CA_Texture_code_file, "    [FFUI_Button_left] = { %f, %f, %f, %f },\n", UVS(find_uvs_for_texture(FFUI_Button_left)));
 		write(CA_Texture_code_file, "    [FFUI_Button_middle] = { %f, %f, %f, %f },\n", UVS(find_uvs_for_texture(FFUI_Button_middle)));
 		write(CA_Texture_code_file, "    [FFUI_Button_right] = { %f, %f, %f, %f },\n", UVS(find_uvs_for_texture(FFUI_Button_right)));
+		write(CA_Texture_code_file, "    \n");
+		write(CA_Texture_code_file, "    [FFUI_Checkbox_checked] = { %f, %f, %f, %f },\n", UVS(find_uvs_for_texture(FFUI_Checkbox_checked)));
+		write(CA_Texture_code_file, "    [FFUI_Checkbox_unchecked] = { %f, %f, %f, %f },\n", UVS(find_uvs_for_texture(FFUI_Checkbox_unchecked)));
 		write(CA_Texture_code_file, "};\n");
 		write(CA_Texture_code_file, "\n");
 		write(CA_Texture_code_file, "unsigned char CA_TEXTURE_pixel_data[%lld];\n", CA_TEXTURE_uncompressed.length);

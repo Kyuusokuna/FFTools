@@ -17,6 +17,9 @@ typedef enum : u8 {
     FFUI_Button_middle,
     FFUI_Button_right,
     
+    FFUI_Checkbox_checked,
+    FFUI_Checkbox_unchecked,
+    
     NUM_FFUI_UVS,
 } FFUI_uv_type;
 

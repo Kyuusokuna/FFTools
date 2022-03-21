@@ -79,6 +79,53 @@ struct Registered_Button {
     bool held;
 };
 
+bool FFUI_Checkbox(const char *label, bool *v) {
+    ImGuiWindow *window = ImGui::GetCurrentWindow();
+    if (window->SkipItems)
+        return false;
+
+    ImGuiStyle &style = GImGui->Style;
+    ImGuiID id = window->GetID(label);
+    ImVec2 label_size = ImGui::CalcTextSize(label, NULL, true);
+
+    ImVec2 pos = window->DC.CursorPos;
+    float square_sz = ImGui::GetFrameHeight();
+    ImRect total_bb(pos, pos + ImVec2(square_sz + (label_size.x > 0.0f ? style.ItemInnerSpacing.x + label_size.x : 0.0f), label_size.y + style.FramePadding.y * 2.0f));
+    
+    ImGui::ItemSize(total_bb, style.FramePadding.y);
+    if (!ImGui::ItemAdd(total_bb, id))
+        return false;
+
+    bool hovered, held;
+    bool pressed = ImGui::ButtonBehavior(total_bb, id, &hovered, &held);
+    if (pressed)
+        *v = !(*v);
+
+    ImGui::RenderNavHighlight(total_bb, id);
+
+    ImDrawList *draw_list = window->DrawList;
+    ImRect check_bb(pos, pos + ImVec2(square_sz, square_sz));
+
+    f32x4 checked_uvs   = FFUI_uvs[FFUI_Checkbox_checked];
+    f32x4 unchecked_uvs = FFUI_uvs[FFUI_Checkbox_unchecked];
+
+    draw_list->AddImage(global_data.actions_texture, check_bb.Min, check_bb.Max, unchecked_uvs.xy, unchecked_uvs.zw, 0xffffffff);
+    if (*v)
+        draw_list->AddImage(global_data.actions_texture, check_bb.Min, check_bb.Max, checked_uvs.xy, checked_uvs.zw, 0xffffffff);
+
+    ImRect hover_bb = check_bb;
+    hover_bb.Expand(square_sz * -0.22f);
+
+    if(hovered)
+        draw_list->AddRectFilled(hover_bb.Min, hover_bb.Max, 0x3fffffff);
+
+    ImVec2 label_pos = ImVec2(check_bb.Max.x + style.ItemInnerSpacing.x, check_bb.Min.y + style.FramePadding.y);
+    if (label_size.x > 0.0f)
+        ImGui::RenderText(label_pos, label);
+
+    return pressed;
+}
+
 bool FFUI_Button(const char *label, bool same_line_if_enough_space = true, bool extend_to_label_width = false) {
     ImGuiWindow *window = ImGui::GetCurrentWindow();
     if (window->SkipItems)
@@ -169,8 +216,6 @@ Registered_Button FFUI_register_ActionButton(ImGuiID id, bool same_line_if_enoug
 
     bool hovered, held;
     bool pressed = ImGui::ButtonBehavior(bb, id, &hovered, &held);
-    if (pressed)
-        ImGui::MarkItemEdited(id);
 
     if (hovered)
         ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
@@ -516,7 +561,7 @@ void setup_panel() {
     ImGui::SetNextItemWidth(input_int_width);
     ImGui::InputInt("CP", &profile.cp);
 
-    ImGui::Checkbox("Specialist", &profile.specialist);
+    FFUI_Checkbox("Specialist", &profile.specialist);
 
     ImGui::NewLine();
 

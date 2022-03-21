@@ -326,7 +326,6 @@
     <ClCompile Include="src\Craft_Actions.cpp" />
     <ClCompile Include="src\Craft_Jobs.cpp" />
     <ClCompile Include="src\d3d11_util.cpp" />
-    <ClCompile Include="src\FFButton.cpp" />
     <ClCompile Include="src\gui.cpp" />
     <ClCompile Include="libs\imgui\imgui.cpp" />
     <ClCompile Include="libs\imgui\imgui_demo.cpp" />
@@ -342,7 +341,6 @@
     <ClCompile Include="src\time_win32.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="data\ActionSlots.h" />
     <ClInclude Include="generated_src\CA_Texture.h" />
     <ClInclude Include="generated_src\compressed_data.h" />
     <ClInclude Include="generated_src\Items.h" />
@@ -354,7 +352,6 @@
     <ClInclude Include="src\d3d11_util.h" />
     <ClInclude Include="src\defer.h" />
     <ClInclude Include="data\Font_Roboto.h" />
-    <ClInclude Include="src\FFButton.h" />
     <ClInclude Include="src\global_data.h" />
     <ClInclude Include="src\gui.h" />
     <ClInclude Include="libs\imgui\imconfig.h" />

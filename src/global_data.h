@@ -53,7 +53,6 @@ extern struct Global_Data {
     int32_t lines_per_macro = 13;
 
     ID3D11ShaderResourceView *actions_texture;
-    ID3D11ShaderResourceView *buttons_texture;
 
     ImFont *big_font;
 

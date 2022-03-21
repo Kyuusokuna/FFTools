@@ -3,13 +3,9 @@
 #include <imgui/imgui.h>
 #define IMGUI_DEFINE_MATH_OPERATORS
 #include <imgui/imgui_internal.h>
-//#include "../data/CA_Texture.h"
-#include "../data/ActionSlots.h"
 #include "../data/Font_Roboto.h"
 #include "Craft_Jobs.h"
 #include "Craft_Actions.h"
-//#include "CA_Texture.h"
-#include "FFButton.h"
 #include "types.h"
 #include "global_data.h"
 #include "crafting_solver3.h"
@@ -126,16 +122,16 @@ void draw_ff_button_empty_slot(Registered_Button button) {
     if (!button.draw_list)
         return;
 
-    f32x4 uv = FFButton_uvs[FFButton_Empty];
-    button.draw_list->AddImage(global_data.buttons_texture, button.bb.Min, button.bb.Max, uv.xy, uv.zw, 0xffffffff);
+    f32x4 uv = FFUI_uvs[FFUI_ActionButton_Empty];
+    button.draw_list->AddImage(global_data.actions_texture, button.bb.Min, button.bb.Max, uv.xy, uv.zw, 0xffffffff);
 }
 
 void draw_ff_button_internal(Registered_Button button, ImTextureID texture, f32x4 uv, bool enabled = true, bool selected = false) {
     if (!button.draw_list)
         return;
 
-    ImVec2 image_size = (button.bb.Max - button.bb.Min) * -(1.0f - (80.0f / 96.0f));
-    ImVec2 selection_size = (button.bb.Max - button.bb.Min) * -(1.0f - (144.0f / 96.0f));
+    ImVec2 image_size = (button.bb.Max - button.bb.Min) * -(1.0f - (80.0f / 88.0f));
+    ImVec2 selection_size = (button.bb.Max - button.bb.Min) * -(1.0f - (112.0f / 88.0f));
 
     ImRect image_bb = ImRect(button.bb.Min - image_size / 2.0f, button.bb.Max + image_size / 2.0f);
     ImRect slot_bb = button.bb;
@@ -146,12 +142,12 @@ void draw_ff_button_internal(Registered_Button button, ImTextureID texture, f32x
     if (button.hovered)
         button.draw_list->AddRectFilled(image_bb.Min, image_bb.Max, 0x3fffffff);
 
-    f32x4 slot_uvs = FFButton_uvs[enabled ? FFButton_Enabled : FFButton_Disabled];
-    button.draw_list->AddImage(global_data.buttons_texture, slot_bb.Min, slot_bb.Max, slot_uvs.xy, slot_uvs.zw, 0xffffffff);
+    f32x4 slot_uvs = FFUI_uvs[enabled ? FFUI_ActionButton_Enabled : FFUI_ActionButton_Disabled];
+    button.draw_list->AddImage(global_data.actions_texture, slot_bb.Min, slot_bb.Max, slot_uvs.xy, slot_uvs.zw, 0xffffffff);
 
     if (/*hovered ||*/ selected) {
-        f32x4 selection_uvs = FFButton_uvs[FFButton_Selected];
-        button.draw_list->AddImage(global_data.buttons_texture, selection_bb.Min, selection_bb.Max, selection_uvs.xy, selection_uvs.zw, 0xffffffff);
+        f32x4 selection_uvs = FFUI_uvs[FFUI_ActionButton_Selected];
+        button.draw_list->AddImage(global_data.actions_texture, selection_bb.Min, selection_bb.Max, selection_uvs.xy, selection_uvs.zw, 0xffffffff);
     }
 }
 
@@ -909,10 +905,6 @@ const char *GUI::init(ID3D11Device *device) {
 
     if (!(global_data.actions_texture = create_texture(device, CA_TEXTURE_WIDTH, CA_TEXTURE_HEIGHT, (DXGI_FORMAT)CA_TEXTURE_FORMAT, CA_TEXTURE_PIXEL_DATA, CA_TEXTURE_WIDTH * 4, CA_TEXTURE_ARRAY_SIZE, CA_TEXTURE_MIP_LEVELS)))
         return "Failed to upload actions texture to GPU.";
-
-    if (!(global_data.buttons_texture = create_texture(device, ACTION_SLOTS_WIDTH, ACTION_SLOTS_HEIGHT, ACTION_SLOTS_FORMAT, ACTION_SLOTS_PIXEL_DATA, ACTION_SLOTS_WIDTH * 4, ACTION_SLOTS_ARRAY_SIZE, ACTION_SLOTS_MIP_LEVELS)))
-        return "Failed to upload button textures to GPU.";
-
 
     ImGuiSettingsHandler profile_handler = {};
     profile_handler.TypeName = "Profile";

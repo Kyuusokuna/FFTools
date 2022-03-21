@@ -63,9 +63,6 @@
     <ClCompile Include="src\Craft_Jobs.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\FFButton.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="libs\miniz\miniz.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -159,12 +156,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\Craft_Jobs.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="src\FFButton.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="data\ActionSlots.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="libs\miniz\miniz.h">

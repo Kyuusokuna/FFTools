@@ -804,104 +804,98 @@ int main(int argc, char **argv) {
 		require_out_file(CA_Texture_header_file, out_dir + "/CA_Texture.h");
 		require_out_file(CA_Texture_code_file, out_dir + "/CA_Texture.cpp");
 
-		struct Loaded_Icon {
-			u32 id;
+		struct Loaded_Texture {
+			s32 width;
+			s32 height;
 			u32 *data;
 		};
+		Array<Loaded_Texture> loaded_textures = {};
+
+		struct Loaded_Icon {
+			u32 id;
+			u32 index;
+		};
 		Array<Loaded_Icon> loaded_icons = {};
+		loaded_icons.add({ .id = 0, .index = 0 });
 
-		auto find_or_add_icon = [&](u32 id) -> Loaded_Icon &{ for (auto &icon : loaded_icons) if (icon.id == id) return icon; return loaded_icons.add({}); };
+		auto get_index_of_icon = [&](u32 id) -> u32 { for (auto icon : loaded_icons) if (icon.id == id) return icon.index; return 0; };
 
-		{
-			snprintf(filepath_buf, sizeof(filepath_buf), "../data/textures/unknown_icon%s.png", ICON_SUFFIX);
+		auto load_texture = [&](const char *filepath) -> u32 {
+			auto index = loaded_textures.count;
+			auto &loaded_texture = loaded_textures.add({});
 
-			s32 width = 0;
-			s32 height = 0;
 			s32 channels = 0;
-			u8 *unknown_icon = stbi_load(filepath_buf, &width, &height, &channels, 4);
-			if (!unknown_icon) {
-				printf("failed to load the unknown_icon from '%s'.\n", filepath_buf);
-				return 1;
+			loaded_texture.data = (u32 *)stbi_load(filepath, &loaded_texture.width, &loaded_texture.height, &channels, 4);
+			if (!loaded_texture.data) {
+				printf("failed to load texture from '%s'.\n", filepath);
+				exit(1);
 			}
 
-			expect(width == ICON_DIMENSIONS);
-			expect(height == ICON_DIMENSIONS);
-			expect(channels == 4);
+			return index;
+		};
 
-			loaded_icons.add({ 0, (u32 *)unknown_icon });
-		}
+		auto load_icon = [&](u32 id) -> Loaded_Texture & {
+			auto index = get_index_of_icon(id);
+			if (index)
+				return loaded_textures[index];
+
+			snprintf(filepath_buf, sizeof(filepath_buf), "%s/ui/icon/%06u/%06u%s.png", argv[1], id / 1000 * 1000, id, ICON_SUFFIX);
+
+			auto &icon = loaded_icons.add({});
+			icon.id = id;
+			icon.index = load_texture(filepath_buf);
+
+			return loaded_textures[icon.index];
+		};
+
+		auto unknown_icon_index = load_texture("../data/textures/unknown_icon" ICON_SUFFIX ".png");
+		expect(unknown_icon_index == 0);
+		expect(loaded_textures[unknown_icon_index].width  == ICON_DIMENSIONS);
+		expect(loaded_textures[unknown_icon_index].height == ICON_DIMENSIONS);
 
 		for (int job = 0; job < NUM_JOBS; job++) {
-			u32 icon_id = Craft_Job_to_Icon_id[job];
-			if (!icon_id)
+			u32 id = Craft_Job_to_Icon_id[job];
+			if (!id) // todo remove
 				continue;
 
-			auto &icon = find_or_add_icon(icon_id);
-			if (icon.id)
-				continue;
-
-			snprintf(filepath_buf, sizeof(filepath_buf), "%s/ui/icon/%06u/%06u%s.png", argv[1], icon_id / 1000 * 1000, icon_id, ICON_SUFFIX);
-
-			s32 width = 0;
-			s32 height = 0;
-			s32 channels = 0;
-
-			u8 *image_data = stbi_load(filepath_buf, &width, &height, &channels, 4);
-			if (!image_data) {
-				printf("failed to load icon with id %u from path '%s'.\n", icon_id, filepath_buf);
-				return 1;
-			}
-
-			expect(width == ICON_DIMENSIONS);
-			expect(height == ICON_DIMENSIONS);
-			expect(channels == 4);
-
-			icon.id = icon_id;
-			icon.data = (u32 *)image_data;
+			auto &icon = load_icon(id);
+			expect(icon.width == ICON_DIMENSIONS);
+			expect(icon.height == ICON_DIMENSIONS);
 		}
 
 		for (int job = 0; job < NUM_JOBS; job++) {
 			for (int action = 0; action < NUM_ACTIONS; action++) {
-				u32 icon_id = Craft_Action_to_Icon_id[job][action];
-				if (!icon_id)
+				u32 id = Craft_Action_to_Icon_id[job][action];
+				if (!id) // todo remove
 					continue;
 
-				auto &icon = find_or_add_icon(icon_id);
-				if (icon.id)
-					continue;
-
-				snprintf(filepath_buf, sizeof(filepath_buf), "%s/ui/icon/%06u/%06u%s.png", argv[1], icon_id / 1000 * 1000, icon_id, ICON_SUFFIX);
-
-				s32 width = 0;
-				s32 height = 0;
-				s32 channels = 0;
-
-				u8 *image_data = stbi_load(filepath_buf, &width, &height, &channels, 4);
-				if (!image_data) {
-					printf("failed to load icon with id %u from path '%s'.\n", icon_id, filepath_buf);
-					return 1;
-				}
-
-				expect(width == ICON_DIMENSIONS);
-				expect(height == ICON_DIMENSIONS);
-				expect(channels == 4);
-
-				icon.id = icon_id;
-				icon.data = (u32 *)image_data;
+				auto &icon = load_icon(id);
+				expect(icon.width == ICON_DIMENSIONS);
+				expect(icon.height == ICON_DIMENSIONS);
 			}
 		}
+
+		auto FFUI_Button_left = load_texture("../data/textures/Button/left.png");
+		auto FFUI_Button_middle = load_texture("../data/textures/Button/middle.png");
+		auto FFUI_Button_right = load_texture("../data/textures/Button/right.png");
+
+		auto FFUI_ActionButton_Disabled = load_texture("../data/textures/ActionButton/Disabled.png");
+		auto FFUI_ActionButton_Empty = load_texture("../data/textures/ActionButton/Empty.png");
+		auto FFUI_ActionButton_Enabled = load_texture("../data/textures/ActionButton/Enabled.png");
+		auto FFUI_ActionButton_Selected = load_texture("../data/textures/ActionButton/Selected.png");
+
 
 		stbrp_context rect_packing_context = {};
 		stbrp_init_target(&rect_packing_context, ATLAS_DIMENSION, ATLAS_DIMENSION, rect_packer_nodes, NUM_RECT_PACKER_NODES);
 
 		Array<stbrp_rect> rects = {};
-		rects.ensure_capacity(loaded_icons.count);
+		rects.ensure_capacity(loaded_textures.count);
 
-		for (int i = 0; i < loaded_icons.count; i++) {
+		for (int i = 0; i < loaded_textures.count; i++) {
 			auto &rect = rects.add({});
-			rect.id = loaded_icons[i].id;
-			rect.w = ICON_DIMENSIONS;
-			rect.h = ICON_DIMENSIONS;
+			rect.id = i;
+			rect.w = loaded_textures[i].width;
+			rect.h = loaded_textures[i].height;
 		}
 
 		if (!stbrp_pack_rects(&rect_packing_context, rects.values, rects.count)) {
@@ -913,9 +907,9 @@ int main(int argc, char **argv) {
 		for (int i = 0; i < rects.count; i++) {
 			auto &rect = rects[i];
 			atlas_max_y = atlas_max_y < (rect.y + rect.h) ? rect.y + rect.h : atlas_max_y;
-			for (int y = 0; y < ICON_DIMENSIONS; y++) {
-				for (int x = 0; x < ICON_DIMENSIONS; x++) {
-					atlas_image[rect.y + y][rect.x + x] = loaded_icons[i].data[y * ICON_DIMENSIONS + x];
+			for (int y = 0; y < rect.h; y++) {
+				for (int x = 0; x < rect.w; x++) {
+					atlas_image[rect.y + y][rect.x + x] = loaded_textures[i].data[y * loaded_textures[i].width + x];
 				}
 			}
 		}
@@ -928,14 +922,20 @@ int main(int argc, char **argv) {
 			return uvs;
 		};
 
-		auto find_uvs_for_icon = [&](u32 icon_id) -> f32x4 {
+		auto find_uvs_for_texture = [&](u32 index) {
 			for (auto &rect : rects)
-				if (rect.id == icon_id)
+				if (rect.id == index)
 					return normalize_uvs({ rect.x + 0.5f, rect.y + 0.5f, rect.x + rect.w - 0.5f, rect.y + rect.h - 0.5f });
 
 			return normalize_uvs({ 0.5f, 0.5f, ICON_DIMENSIONS - 0.5f, ICON_DIMENSIONS - 0.5f });
 		};
 
+		auto find_uvs_for_icon = [&](u32 icon_id) -> f32x4 {
+			auto index = get_index_of_icon(icon_id);
+			return find_uvs_for_texture(index);
+		};
+
+		#define UVS(uvs) uvs.x, uvs.y, uvs.z, uvs.w
 
 		expect(atlas_max_y % 4 == 0);
 
@@ -1000,8 +1000,23 @@ int main(int argc, char **argv) {
 		write(CA_Texture_header_file, "\n");
 		write(CA_Texture_header_file, "%s", cpp_guard_header);
 		write(CA_Texture_header_file, "\n");
+		write(CA_Texture_header_file, "typedef enum : u8 {\n");
+		write(CA_Texture_header_file, "    FFUI_ActionButton_Disabled,\n");
+		write(CA_Texture_header_file, "    FFUI_ActionButton_Enabled,\n");
+		write(CA_Texture_header_file, "    FFUI_ActionButton_Empty,\n");
+		write(CA_Texture_header_file, "    FFUI_ActionButton_Selected,\n");
+		write(CA_Texture_header_file, "    \n");
+		write(CA_Texture_header_file, "    FFUI_Button_left,\n");
+		write(CA_Texture_header_file, "    FFUI_Button_middle,\n");
+		write(CA_Texture_header_file, "    FFUI_Button_right,\n");
+		write(CA_Texture_header_file, "    \n");
+		write(CA_Texture_header_file, "    NUM_FFUI_UVS,\n");
+		write(CA_Texture_header_file, "} FFUI_uv_type;\n");
+		write(CA_Texture_header_file, "\n");
 		write(CA_Texture_header_file, "extern const f32x4 Craft_Job_Icon_uvs[NUM_JOBS];\n");
 		write(CA_Texture_header_file, "extern const f32x4 Craft_Action_Icon_uvs[NUM_JOBS][NUM_ACTIONS];\n");
+		write(CA_Texture_header_file, "\n");
+		write(CA_Texture_header_file, "extern const f32x4 FFUI_uvs[NUM_FFUI_UVS];\n");
 		write(CA_Texture_header_file, "\n");
 		write(CA_Texture_header_file, "#define CA_TEXTURE_WIDTH (%d)\n", ATLAS_DIMENSION);
 		write(CA_Texture_header_file, "#define CA_TEXTURE_HEIGHT (%d)\n", atlas_max_y);
@@ -1039,6 +1054,17 @@ int main(int argc, char **argv) {
 			}
 			write(CA_Texture_code_file, "    },\n");
 		}
+		write(CA_Texture_code_file, "};\n");
+		write(CA_Texture_code_file, "\n");
+		write(CA_Texture_code_file, "const f32x4 FFUI_uvs[NUM_FFUI_UVS] = {\n\n");
+		write(CA_Texture_code_file, "    [FFUI_ActionButton_Disabled] = { %f, %f, %f, %f },\n", UVS(find_uvs_for_texture(FFUI_ActionButton_Disabled)));
+		write(CA_Texture_code_file, "    [FFUI_ActionButton_Enabled] = { %f, %f, %f, %f },\n", UVS(find_uvs_for_texture(FFUI_ActionButton_Enabled)));
+		write(CA_Texture_code_file, "    [FFUI_ActionButton_Empty] = { %f, %f, %f, %f },\n", UVS(find_uvs_for_texture(FFUI_ActionButton_Empty)));
+		write(CA_Texture_code_file, "    [FFUI_ActionButton_Selected] = { %f, %f, %f, %f },\n", UVS(find_uvs_for_texture(FFUI_ActionButton_Selected)));
+		write(CA_Texture_code_file, "    \n");
+		write(CA_Texture_code_file, "    [FFUI_Button_left] = { %f, %f, %f, %f },\n", UVS(find_uvs_for_texture(FFUI_Button_left)));
+		write(CA_Texture_code_file, "    [FFUI_Button_middle] = { %f, %f, %f, %f },\n", UVS(find_uvs_for_texture(FFUI_Button_middle)));
+		write(CA_Texture_code_file, "    [FFUI_Button_right] = { %f, %f, %f, %f },\n", UVS(find_uvs_for_texture(FFUI_Button_right)));
 		write(CA_Texture_code_file, "};\n");
 		write(CA_Texture_code_file, "\n");
 		write(CA_Texture_code_file, "unsigned char CA_TEXTURE_pixel_data[%lld];\n", CA_TEXTURE_uncompressed.length);

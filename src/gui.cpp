@@ -187,9 +187,8 @@ bool FFUI_Button(const char *label, bool same_line_if_enough_space = true, bool 
     draw_list->AddImage(global_data.actions_texture, middle_bb.Min, middle_bb.Max, middle_uvs.xy, middle_uvs.zw, 0xffffffff);
     draw_list->AddImage(global_data.actions_texture, right_bb.Min, right_bb.Max, right_uvs.xy, right_uvs.zw, 0xffffffff);
 
-    ImVec2 text_start = ImVec2(middle_start.x, middle_start.y + middle_size.y * 0.1f);
-
-    //draw_list->AddText(text_start, 0xffffffff, label);
+    if (hovered)
+        draw_list->AddRectFilled(bb.Min + ImVec2(0, height * 0.1f), bb.Max - ImVec2(0, height * 0.18f), 0x1fffffff, height / 2.0f, ImDrawFlags_None);
 
     ImGui::RenderTextClipped(middle_bb.Min, middle_bb.Max, label, NULL, &label_size, style.ButtonTextAlign, &middle_bb);
 

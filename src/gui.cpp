@@ -79,7 +79,7 @@ struct Registered_Button {
     bool held;
 };
 
-Registered_Button register_ff_button(ImGuiID id, bool same_line_if_enough_space = true) {
+Registered_Button FFUI_register_ActionButton(ImGuiID id, bool same_line_if_enough_space = true) {
     Registered_Button result = {};
     result.id = id;
 
@@ -118,7 +118,7 @@ Registered_Button register_ff_button(ImGuiID id, bool same_line_if_enough_space 
     return result;
 }
 
-void draw_ff_button_empty_slot(Registered_Button button) {
+void FFUI_draw_ActionButton_empty(Registered_Button button) {
     if (!button.draw_list)
         return;
 
@@ -126,7 +126,7 @@ void draw_ff_button_empty_slot(Registered_Button button) {
     button.draw_list->AddImage(global_data.actions_texture, button.bb.Min, button.bb.Max, uv.xy, uv.zw, 0xffffffff);
 }
 
-void draw_ff_button_internal(Registered_Button button, ImTextureID texture, f32x4 uv, bool enabled = true, bool selected = false) {
+void FFUI_draw_ActionButton_internal(Registered_Button button, ImTextureID texture, f32x4 uv, bool enabled = true, bool selected = false) {
     if (!button.draw_list)
         return;
 
@@ -151,20 +151,20 @@ void draw_ff_button_internal(Registered_Button button, ImTextureID texture, f32x
     }
 }
 
-void draw_ff_button_job(Registered_Button button, Craft_Job job, bool selected = false) {
+void FFUI_draw_ActionButton_job(Registered_Button button, Craft_Job job, bool selected = false) {
     if (!button.draw_list)
         return;
 
     f32x4 uv = Craft_Job_Icon_uvs[job];
-    draw_ff_button_internal(button, global_data.actions_texture, uv, true, selected);
+    FFUI_draw_ActionButton_internal(button, global_data.actions_texture, uv, true, selected);
 }
 
-void draw_ff_button_craft_action(Registered_Button button, Craft_Job job, Craft_Action action, Craft_Action previous_action = (Craft_Action)0xFF, bool enabled = true, bool selected = false) {
+void FFUI_draw_ActionButton_action(Registered_Button button, Craft_Job job, Craft_Action action, Craft_Action previous_action = (Craft_Action)0xFF, bool enabled = true, bool selected = false) {
     if (!button.draw_list)
         return;
 
     f32x4 uv = Craft_Action_Icon_uvs[job][action];
-    draw_ff_button_internal(button, global_data.actions_texture, uv, enabled, selected);
+    FFUI_draw_ActionButton_internal(button, global_data.actions_texture, uv, enabled, selected);
 
     int32_t cp_cost = Craft_Actions_efficiency[action].x;
     if (cp_cost) {
@@ -180,19 +180,19 @@ void draw_ff_button_craft_action(Registered_Button button, Craft_Job job, Craft_
     }
 }
 
-bool ff_button_job(ImGuiID id, Craft_Job job, bool selected = false, bool same_line_if_enough_space = true) {
-    auto button = register_ff_button(id, same_line_if_enough_space);
-    draw_ff_button_job(button, job, selected);
+bool FFUI_ActionButton_job(ImGuiID id, Craft_Job job, bool selected = false, bool same_line_if_enough_space = true) {
+    auto button = FFUI_register_ActionButton(id, same_line_if_enough_space);
+    FFUI_draw_ActionButton_job(button, job, selected);
     return button.pressed;
 }
 
-bool ff_button_craft_action(ImGuiID id, Craft_Job job, Craft_Action action, Craft_Action previous_action = (Craft_Action)0xFF, bool enabled = true, bool selected = false, bool drag_drop_source = false, bool same_line_if_enough_space = true) {
-    auto button = register_ff_button(id, same_line_if_enough_space);
-    draw_ff_button_craft_action(button, job, action, previous_action, enabled, selected);
+bool FFUI_ActionButton_action(ImGuiID id, Craft_Job job, Craft_Action action, Craft_Action previous_action = (Craft_Action)0xFF, bool enabled = true, bool selected = false, bool drag_drop_source = false, bool same_line_if_enough_space = true) {
+    auto button = FFUI_register_ActionButton(id, same_line_if_enough_space);
+    FFUI_draw_ActionButton_action(button, job, action, previous_action, enabled, selected);
 
     if (drag_drop_source) {
         if (ImGui::BeginDragDropSource()) {
-            ff_button_craft_action(id, job, action, previous_action);
+            FFUI_ActionButton_action(id, job, action, previous_action);
 
             Drag_Drop_Payload_Craft_Action payload = {};
             payload.job = job;
@@ -239,12 +239,12 @@ bool ff_button_craft_action(ImGuiID id, Craft_Job job, Craft_Action action, Craf
 void job_selector(Craft_Job &selected_job) {
     if (selected_job == (Craft_Job)-1) {
         for (int job = 0; job < NUM_JOBS; job++)
-            if (ff_button_job(ImGui::GetID(job), (Craft_Job)job))
+            if (FFUI_ActionButton_job(ImGui::GetID(job), (Craft_Job)job))
                 selected_job = (Craft_Job)job;
         return;
     }
 
-    if (ff_button_job(ImGui::GetID("selected_job"), selected_job)) {
+    if (FFUI_ActionButton_job(ImGui::GetID("selected_job"), selected_job)) {
         selected_job = (Craft_Job)-1;
         return;
     }
@@ -274,7 +274,7 @@ void craft_actions_selector(Craft_Job job, u32 &active_actions, u32 visible_acti
             auto action = Craft_Actions_Progress[i];
 
             if (visible_actions & (1 << action)) {
-                if (ff_button_craft_action(ImGui::GetID(action), job, action, previous_action, active_actions & (1 << action), false, drag_drop_source, has_displayed_first))
+                if (FFUI_ActionButton_action(ImGui::GetID(action), job, action, previous_action, active_actions & (1 << action), false, drag_drop_source, has_displayed_first))
                     active_actions ^= 1 << action;
 
                 has_displayed_first = true;
@@ -297,7 +297,7 @@ void craft_actions_selector(Craft_Job job, u32 &active_actions, u32 visible_acti
             auto action = Craft_Actions_Quality[i];
 
             if (visible_actions & (1 << action)) {
-                if (ff_button_craft_action(ImGui::GetID(action), job, action, previous_action, active_actions & (1 << action), false, drag_drop_source, has_displayed_first))
+                if (FFUI_ActionButton_action(ImGui::GetID(action), job, action, previous_action, active_actions & (1 << action), false, drag_drop_source, has_displayed_first))
                     active_actions ^= 1 << action;
 
                 has_displayed_first = true;
@@ -317,7 +317,7 @@ void craft_actions_selector(Craft_Job job, u32 &active_actions, u32 visible_acti
             auto action = Craft_Actions_Buff[i];
 
             if (visible_actions & (1 << action)) {
-                if (ff_button_craft_action(ImGui::GetID(action), job, action, previous_action, active_actions & (1 << action), false, drag_drop_source, has_displayed_first))
+                if (FFUI_ActionButton_action(ImGui::GetID(action), job, action, previous_action, active_actions & (1 << action), false, drag_drop_source, has_displayed_first))
                     active_actions ^= 1 << action;
 
                 has_displayed_first = true;
@@ -341,7 +341,7 @@ void craft_actions_selector(Craft_Job job, u32 &active_actions, u32 visible_acti
             auto action = Craft_Actions_Other[i];
 
             if (visible_actions & (1 << action)) {
-                if (ff_button_craft_action(ImGui::GetID(action), job, action, previous_action, active_actions & (1 << action), false, drag_drop_source, has_displayed_first))
+                if (FFUI_ActionButton_action(ImGui::GetID(action), job, action, previous_action, active_actions & (1 << action), false, drag_drop_source, has_displayed_first))
                     active_actions ^= 1 << action;
 
                 has_displayed_first = true;
@@ -540,11 +540,11 @@ void simulator_panel() {
     bool has_actions = data.num_actions != 0;
     Craft_Action previous_action = (Craft_Action)-1;
     for (int i = 0; i < data.num_actions; i++) {
-        auto button = register_ff_button(ImGui::GetID(i), i != 0);
+        auto button = FFUI_register_ActionButton(ImGui::GetID(i), i != 0);
 
         if (ImGui::BeginDragDropSource()) {
-            draw_ff_button_empty_slot(button);
-            ff_button_craft_action(ImGui::GetID(i), simulator_data.selected_job, data.actions[i], previous_action);
+            FFUI_draw_ActionButton_empty(button);
+            FFUI_ActionButton_action(ImGui::GetID(i), simulator_data.selected_job, data.actions[i], previous_action);
 
             Drag_Drop_Payload_Craft_Action payload = {};
             payload.job = simulator_data.selected_job;
@@ -562,8 +562,8 @@ void simulator_panel() {
             if (payload) {
                 auto payload_info = (Drag_Drop_Payload_Craft_Action *)payload->Data;
 
-                draw_ff_button_craft_action(button, payload_info->job, payload_info->action, previous_action);
-                button = register_ff_button(ImGui::GetID(i));
+                FFUI_draw_ActionButton_action(button, payload_info->job, payload_info->action, previous_action);
+                button = FFUI_register_ActionButton(ImGui::GetID(i));
 
                 if (payload->Delivery) {
                     insert_at_index(i, payload_info->action);
@@ -580,7 +580,7 @@ void simulator_panel() {
             ImGui::EndDragDropTarget();
         }
 
-        draw_ff_button_craft_action(button, simulator_data.selected_job, data.actions[i], previous_action, i < num_possible_actions);
+        FFUI_draw_ActionButton_action(button, simulator_data.selected_job, data.actions[i], previous_action, i < num_possible_actions);
 
         if (button.pressed)
             remove_at_index(i);
@@ -588,15 +588,15 @@ void simulator_panel() {
         previous_action = data.actions[i];
     }
 
-    auto empty_slot = register_ff_button(ImGui::GetID(-1), has_actions);
+    auto empty_slot = FFUI_register_ActionButton(ImGui::GetID(-1), has_actions);
 
     if (ImGui::BeginDragDropTarget()) {
         auto payload = ImGui::AcceptDragDropPayload("Craft_Action", ImGuiDragDropFlags_AcceptBeforeDelivery);
         if (payload) {
             auto payload_info = (Drag_Drop_Payload_Craft_Action *)payload->Data;
 
-            draw_ff_button_craft_action(empty_slot, payload_info->job, payload_info->action, previous_action);
-            empty_slot = register_ff_button(ImGui::GetID(-1));
+            FFUI_draw_ActionButton_action(empty_slot, payload_info->job, payload_info->action, previous_action);
+            empty_slot = FFUI_register_ActionButton(ImGui::GetID(-1));
 
             if (payload->Delivery) {
                 data.actions[data.num_actions] = payload_info->action;
@@ -610,7 +610,7 @@ void simulator_panel() {
         ImGui::EndDragDropTarget();
     }
 
-    draw_ff_button_empty_slot(empty_slot);
+    FFUI_draw_ActionButton_empty(empty_slot);
 
 
     if (data.num_actions) {
@@ -759,7 +759,7 @@ void solver_panel() {
 
     Craft_Action previous_action = (Craft_Action)-1;
     for (int i = 0; i < current_result.depth; i++) {
-        ff_button_craft_action(ImGui::GetID(i), solver.selected_job, current_result.actions[i], previous_action, true, false, false, i != 0);
+        FFUI_ActionButton_action(ImGui::GetID(i), solver.selected_job, current_result.actions[i], previous_action, true, false, false, i != 0);
         previous_action = current_result.actions[i];
     }
 

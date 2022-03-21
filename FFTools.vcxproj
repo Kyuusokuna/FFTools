@@ -379,6 +379,12 @@
   <ItemGroup>
     <Natvis Include="src\string.natvis" />
   </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="data\app.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="data\app.ico" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

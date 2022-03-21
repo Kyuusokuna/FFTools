@@ -183,4 +183,14 @@
   <ItemGroup>
     <Natvis Include="src\string.natvis" />
   </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="data\app.rc">
+      <Filter>Resource Files</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="data\app.ico">
+      <Filter>Resource Files</Filter>
+    </Image>
+  </ItemGroup>
 </Project>

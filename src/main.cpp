@@ -50,7 +50,7 @@ DWORD gui_thread;
 int main(int argc, char **argv) {
     // Create application window
     ImGui_ImplWin32_EnableDpiAwareness();
-    WNDCLASSEX wc = { sizeof(WNDCLASSEX), CS_CLASSDC, MainWndProc, 0L, 0L, GetModuleHandle(NULL), NULL, NULL, NULL, NULL, _T("FFTools"), NULL };
+    WNDCLASSEX wc = { sizeof(WNDCLASSEX), CS_CLASSDC, MainWndProc, 0L, 0L, GetModuleHandle(NULL), LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(1)), NULL, NULL, NULL, _T("FFTools"), NULL };
     ::RegisterClassEx(&wc);
     hwnd = ::CreateWindowEx(WS_EX_NOREDIRECTIONBITMAP, wc.lpszClassName, _T("FFTools"), WS_OVERLAPPEDWINDOW, 100, 100, 1280, 800, NULL, NULL, wc.hInstance, NULL);
 

@@ -48,6 +48,10 @@ HWND hwnd;
 DWORD gui_thread;
 
 int main(int argc, char **argv) {
+    #ifndef PUBLISH
+    Renderdoc::init();
+    #endif
+
     // Create application window
     ImGui_ImplWin32_EnableDpiAwareness();
     WNDCLASSEX wc = { sizeof(WNDCLASSEX), CS_CLASSDC, MainWndProc, 0L, 0L, GetModuleHandle(NULL), LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(1)), NULL, NULL, NULL, _T("FFTools"), NULL };
@@ -62,6 +66,20 @@ int main(int argc, char **argv) {
     // Show the window
     ::ShowWindow(hwnd, SW_SHOWDEFAULT);
     ::UpdateWindow(hwnd);
+
+    // Initialize Direct3D
+    if (!CreateDeviceD3D(hwnd)) {
+        CleanupDeviceD3D();
+        return 1;
+    }
+
+    // Setup Dear ImGui context
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+
+    // Setup Platform/Renderer backends
+    ImGui_ImplWin32_Init(hwnd);
+    ImGui_ImplDX11_Init(g_pd3dDevice, g_pd3dDeviceContext);
 
     auto gui_thread_handle = CreateThread(0, 0, (LPTHREAD_START_ROUTINE)imgui_main, 0, 0, &gui_thread);
 
@@ -82,23 +100,7 @@ int main(int argc, char **argv) {
 }
 
 int imgui_main() {
-    #ifndef PUBLISH
-    Renderdoc::init();
-    #endif
-
-    // Initialize Direct3D
-    if (!CreateDeviceD3D(hwnd)) {
-        CleanupDeviceD3D();
-        return 1;
-    }
-
-    // Setup Dear ImGui context
-    IMGUI_CHECKVERSION();
-    auto imgui_context = ImGui::CreateContext();
-
-    // Setup Platform/Renderer backends
-    ImGui_ImplWin32_Init(hwnd);
-    ImGui_ImplDX11_Init(g_pd3dDevice, g_pd3dDeviceContext);
+    auto imgui_context = ImGui::GetCurrentContext();
 
     auto init_error = GUI::init(g_pd3dDevice);
     if (init_error) {

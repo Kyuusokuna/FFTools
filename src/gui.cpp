@@ -473,6 +473,8 @@ bool recipe_selector(Craft_Job job, Recipe *&selected_recipe) {
         static char recipe_search[64] = "";
         SetNextItemMaxWidth(input_str_width);
         ImGui::InputTextWithHint("##recipe_search", "Recipe search", recipe_search, sizeof(recipe_search));
+
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.254f, 0.250f, 0.254f, 1.000f));
         SetNextItemMaxWidth(input_str_width);
         if (ImGui::BeginListBox("##recipe_selector", ImVec2(0, -1))) {
             for (int i = 0; i < NUM_RECIPES[job]; i++) {
@@ -487,6 +489,7 @@ bool recipe_selector(Craft_Job job, Recipe *&selected_recipe) {
             }
             ImGui::EndListBox();
         }
+        ImGui::PopStyleColor();
 
         return has_selected_new_recipe;
     }
@@ -912,9 +915,14 @@ bool GUI::per_frame() {
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(style.FramePadding.x, style.FramePadding.y * 2));
     if (ImGui::BeginMainMenuBar()) {
         ImGui::PopStyleVar();
+
+        ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.629f, 0.523f, 0.306f, 1.000f));
+        ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.808f, 0.667f, 0.388f, 1.000f));
+        ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(0.904f, 0.833f, 0.694f, 1.000f));
         if (AlignedMenuItem("Profile", current_main_panel == Main_Panel_Profile)) current_main_panel = Main_Panel_Profile;
         if (AlignedMenuItem("Simulator", current_main_panel == Main_Panel_Crafting_Simulator)) current_main_panel = Main_Panel_Crafting_Simulator;
         if (AlignedMenuItem("Solver", current_main_panel == Main_Panel_Crafting_Solver)) current_main_panel = Main_Panel_Crafting_Solver;
+        ImGui::PopStyleColor(3);
 
         ImGui::EndMainMenuBar();
     }
@@ -998,8 +1006,22 @@ const char *GUI::init(ID3D11Device *device) {
     auto &style = ImGui::GetStyle();
     auto &colors = style.Colors;
 
-    colors[ImGuiCol_WindowBg] = ImVec4(0.192f, 0.192f, 0.192f, 1.00f);
-    colors[ImGuiCol_MenuBarBg] = ImVec4(0.192f, 0.192f, 0.192f, 1.00f);
+    colors[ImGuiCol_WindowBg] =       ImVec4(0.192f, 0.188f, 0.192f, 1.000f);
+    colors[ImGuiCol_MenuBarBg] =      ImVec4(0.192f, 0.192f, 0.192f, 1.000f);
+
+    colors[ImGuiCol_FrameBg] =        ImVec4(0.333f, 0.333f, 0.333f, 1.000f);
+    colors[ImGuiCol_TextDisabled] =   ImVec4(0.549f, 0.549f, 0.549f, 1.000f);
+    colors[ImGuiCol_TextSelectedBg] = ImVec4(0.408f, 0.824f, 0.000f, 0.390f);
+
+    colors[ImGuiCol_Button] =         ImVec4(0.290f, 0.290f, 0.290f, 1.000f);
+    colors[ImGuiCol_ButtonHovered] =  ImVec4(0.353f, 0.353f, 0.353f, 1.000f);
+    colors[ImGuiCol_ButtonActive] =   ImVec4(0.415f, 0.415f, 0.415f, 1.000f); 
+
+    // ImGui::Selectable
+    colors[ImGuiCol_Header] =         ImVec4(0.290f, 0.290f, 0.290f, 1.000f);
+    colors[ImGuiCol_HeaderHovered] =  ImVec4(0.353f, 0.353f, 0.353f, 1.000f);
+    colors[ImGuiCol_HeaderActive] =   ImVec4(0.415f, 0.415f, 0.415f, 1.000f);
+
 
     io.IniFilename = "FFTools.ini";
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;

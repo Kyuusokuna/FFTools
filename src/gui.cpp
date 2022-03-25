@@ -811,9 +811,16 @@ void simulator_panel() {
     u32 active_actions = profile.active_actions;
     u32 visible_actions = active_actions;
 
+    for (int i = 0; i < NUM_ACTIONS; i++) {
+        auto ctx = context;
+        if(!Crafting_Simulator::simulate_step(ctx, (Craft_Action)i))
+            active_actions &= ~(1 << i);
+    }
+
+    u32 possible_actions = active_actions;
     craft_actions_selector(simulator_data.selected_job, active_actions, visible_actions, data.num_actions ? data.actions[data.num_actions - 1] : (Craft_Action)-1, true);
     
-    u32 changed_flag = profile.active_actions ^ active_actions;
+    u32 changed_flag = possible_actions ^ active_actions;
     if (changed_flag) {
         if (data.num_actions == MAX_SIM_ACTIONS)
             return;

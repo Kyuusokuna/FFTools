@@ -556,12 +556,15 @@ void setup_panel() {
 
     ImGui::SetNextItemWidth(input_int_width);
     ImGui::InputInt("Craftsmanship", &profile.craftsmanship);
+    profile.craftsmanship = clamp(profile.craftsmanship, 0, 9999);
 
     ImGui::SetNextItemWidth(input_int_width);
     ImGui::InputInt("Control", &profile.control);
+    profile.control = clamp(profile.control, 0, 9999);
 
     ImGui::SetNextItemWidth(input_int_width);
     ImGui::InputInt("CP", &profile.cp);
+    profile.cp = clamp(profile.cp, 0, 9999);
 
     FFUI_Checkbox("Specialist", &profile.specialist);
 

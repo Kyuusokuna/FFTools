@@ -502,6 +502,68 @@ bool recipe_selector(Craft_Job job, Recipe *&selected_recipe) {
     return false;
 }
 
+void FFUI_ProgressBar(s32 current_value, s32 max_value, u32 left_color = 0xFF4AA24A, u32 right_color = 0xFF39D3B5, u32 full_separators = 0, u32 half_separators = 0) {
+    ImGuiWindow *window = ImGui::GetCurrentWindow();
+    if (window->SkipItems)
+        return;
+
+    const ImGuiStyle &style = GImGui->Style;
+
+    ImVec2 pos = window->DC.CursorPos;
+    ImVec2 size = ImGui::CalcItemSize(ImVec2(0, 0), ImGui::CalcItemWidth(), GImGui->FontSize + style.FramePadding.y * 2.0f);
+    ImRect bb(pos, pos + size);
+    ImGui::ItemSize(size, style.FramePadding.y);
+    if (!ImGui::ItemAdd(bb, 0))
+        return;
+
+    ImDrawList *draw_list = window->DrawList;
+
+    float fraction = ImSaturate(current_value / (float)max_value);
+    ImRect filled_bb = ImRect(bb.Min, ImVec2(ImLerp(bb.Min.x, bb.Max.x, fraction), bb.Max.y));
+
+    draw_list->AddRectFilled(bb.Min, bb.Max, ImGui::GetColorU32(ImGuiCol_FrameBg), 0.0f);
+    draw_list->AddRectFilledMultiColor(filled_bb.Min, filled_bb.Max, left_color, right_color, right_color, left_color);
+
+    u32 separator_color = ImGui::GetColorU32(ImGuiCol_WindowBg);
+
+    if (full_separators) {
+        s32 num = (max_value - 1) / full_separators;
+
+        for (int i = 0; i < num; i++) {
+            s32 val = (i + 1) * full_separators;
+            float x = ImLerp(bb.Min.x, bb.Max.x, val / (float)max_value);
+            draw_list->AddLine(ImVec2(x, bb.Min.y), ImVec2(x, bb.Max.y), separator_color);
+        }
+    }
+
+    if (half_separators) {
+        ImVec2 y = ImVec2();
+        s32 num = (max_value - 1) / half_separators;
+
+        for (int i = 0; i < num; i++) {
+            if (full_separators && ((i + 1) * half_separators) % full_separators == 0)
+                continue;
+
+            s32 val = (i + 1) * half_separators;
+            float x = ImLerp(bb.Min.x, bb.Max.x, val / (float)max_value);
+
+            #if 0
+            draw_list->AddLine(ImVec2(x, ImLerp(bb.Min.y, bb.Max.y, 0.25f)), ImVec2(x, ImLerp(bb.Min.y, bb.Max.y, 0.75f)), separator_color);
+            #else
+            draw_list->AddLine(ImVec2(x, bb.Min.y), ImVec2(x, ImLerp(bb.Min.y, bb.Max.y, 0.25f)), separator_color);
+            draw_list->AddLine(ImVec2(x, bb.Max.y), ImVec2(x, ImLerp(bb.Min.y, bb.Max.y, 0.75f)), separator_color);
+            #endif
+        }
+    }
+
+    char overlay_buf[32]; 
+    ImFormatString(overlay_buf, IM_ARRAYSIZE(overlay_buf), "%d / %d", current_value, max_value);
+
+    ImVec2 overlay_size = ImGui::CalcTextSize(overlay_buf, NULL);
+    ImGui::RenderTextClipped(bb.Min, bb.Max, overlay_buf, 0, &overlay_size, ImVec2(0.5f, 0.5f), &bb);
+
+}
+
 void crafting_result_display(int32_t current_progress,
                              int32_t current_quality,
                              int32_t current_cp,
@@ -515,27 +577,26 @@ void crafting_result_display(int32_t current_progress,
 
     ImGui::Text("Progress");
     SetNextItemMaxWidth(input_str_width);
-    ImGui::ProgressBar(current_progress / (float)max_progress, ImVec2(0, 0));
-    ImGui::SameLine();
-    ImGui::Text("%d / %d", current_progress, max_progress);
+    FFUI_ProgressBar(current_progress, max_progress, 0xFF4AA24A, 0xFF39D3B5);
 
     ImGui::Text("Quality");
     SetNextItemMaxWidth(input_str_width);
-    ImGui::ProgressBar(current_quality / (float)max_quality, ImVec2(0, 0));
-    ImGui::SameLine();
-    ImGui::Text("%d / %d", current_quality, max_quality);
+    FFUI_ProgressBar(current_quality, max_quality, 0xFFCE7152, 0xFFA5D339);
 
     ImGui::Text("CP");
     SetNextItemMaxWidth(input_str_width);
-    ImGui::ProgressBar(current_cp / (float)max_cp, ImVec2(0, 0));
-    ImGui::SameLine();
-    ImGui::Text("%d / %d", current_cp, max_cp);
+    FFUI_ProgressBar(current_cp, max_cp, 0xFF640A46, 0xFFC263A4);
+
+
+    u32 durability_color = 0xFF9F99FF;
+    if (current_durability > max_durability / 4)
+        durability_color = 0xFF6DCAFF;
+    if (current_durability > max_durability / 2)
+        durability_color = 0xFFFFCA6D;
 
     ImGui::Text("Durability");
     SetNextItemMaxWidth(input_str_width);
-    ImGui::ProgressBar(current_durability / (float)max_durability, ImVec2(0, 0));
-    ImGui::SameLine();
-    ImGui::Text("%d / %d", current_durability, max_durability);
+    FFUI_ProgressBar(current_durability, max_durability, durability_color, durability_color, 10, 5);
 }
 
 
@@ -727,27 +788,25 @@ void simulator_panel() {
     FFUI_draw_ActionButton_empty(empty_slot);
 
 
-    if (data.num_actions) {
-        ImGui::AlignTextToFramePadding();
-        ImGui::TextUnformatted("Copy to Clipboard: ");
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextUnformatted("Copy to Clipboard: ");
 
-        if (FFUI_Button("Teamcraft"))
-            copy_actions_to_clipboard_teamcraft(data.actions, data.num_actions);
+    if (FFUI_Button("Teamcraft"))
+        copy_actions_to_clipboard_teamcraft(data.actions, data.num_actions);
 
-        char macro_buf[16] = {};
-        int actions_left = data.num_actions;
-        int current_macro = 0;
+    char macro_buf[16] = {};
+    int actions_left = data.num_actions;
+    int current_macro = 0;
 
-        while (actions_left) {
-            snprintf(macro_buf, sizeof(macro_buf), data.num_actions > global_data.lines_per_macro ? "Macro %d" : "Macro", current_macro + 1);
-            if (FFUI_Button(macro_buf))
-                copy_actions_to_clipboard_macro(data.actions + current_macro * global_data.lines_per_macro, clamp(actions_left, 0, global_data.lines_per_macro));
+    while (actions_left) {
+        snprintf(macro_buf, sizeof(macro_buf), data.num_actions > global_data.lines_per_macro ? "Macro %d" : "Macro", current_macro + 1);
+        if (FFUI_Button(macro_buf))
+            copy_actions_to_clipboard_macro(data.actions + current_macro * global_data.lines_per_macro, clamp(actions_left, 0, global_data.lines_per_macro));
 
-            current_macro++;
-            actions_left -= clamp(global_data.lines_per_macro, 0, actions_left);
-        }
-        ImGui::NewLine();
+        current_macro++;
+        actions_left -= clamp(global_data.lines_per_macro, 0, actions_left);
     }
+
 
     u32 active_actions = profile.active_actions;
     u32 visible_actions = active_actions;
@@ -869,10 +928,22 @@ void solver_panel() {
                             profile.cp,
                             data.selected_recipe->durability);
 
+    if (!current_result.depth)
+        FFUI_draw_ActionButton_empty(FFUI_register_ActionButton(ImGui::GetID(0), false));
+
     Craft_Action previous_action = (Craft_Action)-1;
     for (int i = 0; i < current_result.depth; i++) {
         FFUI_ActionButton_action(ImGui::GetID(i), solver.selected_job, current_result.actions[i], previous_action, true, false, false, i != 0);
         previous_action = current_result.actions[i];
+    }
+
+    if (FFUI_Button("Edit in Simulator", false, true)) {
+        auto &sim = global_data.simulator;
+        sim.selected_job = solver.selected_job;
+        sim.per_job[sim.selected_job].num_actions = current_result.depth;
+        sim.per_job[sim.selected_job].selected_recipe = data.selected_recipe;
+        memcpy(sim.per_job[sim.selected_job].actions, current_result.actions, current_result.depth * sizeof(*current_result.actions));
+        global_data.current_main_panel = Main_Panel_Crafting_Simulator;
     }
 
     if (current_result.depth) {
@@ -894,15 +965,6 @@ void solver_panel() {
             current_macro++;
             actions_left -= clamp(global_data.lines_per_macro, 0, actions_left);
         }
-    }
-
-    if (FFUI_Button("Edit in Simulator", false, true)) {
-        auto &sim = global_data.simulator;
-        sim.selected_job = solver.selected_job;
-        sim.per_job[sim.selected_job].num_actions = current_result.depth;
-        sim.per_job[sim.selected_job].selected_recipe = data.selected_recipe;
-        memcpy(sim.per_job[sim.selected_job].actions, current_result.actions, current_result.depth * sizeof(*current_result.actions));
-        global_data.current_main_panel = Main_Panel_Crafting_Simulator;
     }
 }
 

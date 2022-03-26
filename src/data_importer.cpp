@@ -884,7 +884,6 @@ int main(int argc, char **argv) {
 
 		auto FFUI_ActionButton_Empty    = load_texture("../data/textures/ActionButton/Empty.png");
 		auto FFUI_ActionButton_Filled  = load_texture("../data/textures/ActionButton/Filled.png");
-		auto FFUI_ActionButton_Selected = load_texture("../data/textures/ActionButton/Selected.png");
 
 		auto FFUI_Checkbox_checked   = load_texture("../data/textures/Checkbox/checked.png");
 		auto FFUI_Checkbox_unchecked = load_texture("../data/textures/Checkbox/unchecked.png");
@@ -1008,7 +1007,6 @@ int main(int argc, char **argv) {
 		write(CA_Texture_header_file, "typedef enum : u8 {\n");
 		write(CA_Texture_header_file, "    FFUI_ActionButton_Filled,\n");
 		write(CA_Texture_header_file, "    FFUI_ActionButton_Empty,\n");
-		write(CA_Texture_header_file, "    FFUI_ActionButton_Selected,\n");
 		write(CA_Texture_header_file, "    \n");
 		write(CA_Texture_header_file, "    FFUI_Button_left,\n");
 		write(CA_Texture_header_file, "    FFUI_Button_middle,\n");
@@ -1066,7 +1064,6 @@ int main(int argc, char **argv) {
 		write(CA_Texture_code_file, "const f32x4 FFUI_uvs[NUM_FFUI_UVS] = {\n\n");
 		write(CA_Texture_code_file, "    [FFUI_ActionButton_Filled] = { %f, %f, %f, %f },\n", UVS(find_uvs_for_texture(FFUI_ActionButton_Filled)));
 		write(CA_Texture_code_file, "    [FFUI_ActionButton_Empty] = { %f, %f, %f, %f },\n", UVS(find_uvs_for_texture(FFUI_ActionButton_Empty)));
-		write(CA_Texture_code_file, "    [FFUI_ActionButton_Selected] = { %f, %f, %f, %f },\n", UVS(find_uvs_for_texture(FFUI_ActionButton_Selected)));
 		write(CA_Texture_code_file, "    \n");
 		write(CA_Texture_code_file, "    [FFUI_Button_left] = { %f, %f, %f, %f },\n", UVS(find_uvs_for_texture(FFUI_Button_left)));
 		write(CA_Texture_code_file, "    [FFUI_Button_middle] = { %f, %f, %f, %f },\n", UVS(find_uvs_for_texture(FFUI_Button_middle)));

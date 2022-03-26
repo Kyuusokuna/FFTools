@@ -256,11 +256,6 @@ void FFUI_draw_ActionButton_internal(Registered_Button button, ImTextureID textu
 
     f32x4 slot_uvs = FFUI_uvs[FFUI_ActionButton_Filled];
     button.draw_list->AddImage(global_data.actions_texture, slot_bb.Min, slot_bb.Max, slot_uvs.xy, slot_uvs.zw, 0xffffffff);
-
-    if (/*hovered ||*/ selected) {
-        f32x4 selection_uvs = FFUI_uvs[FFUI_ActionButton_Selected];
-        button.draw_list->AddImage(global_data.actions_texture, selection_bb.Min, selection_bb.Max, selection_uvs.xy, selection_uvs.zw, 0xffffffff);
-    }
 }
 
 void FFUI_draw_ActionButton_job(Registered_Button button, Craft_Job job, bool selected = false) {

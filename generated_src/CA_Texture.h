@@ -10,7 +10,6 @@ extern "C" {
 typedef enum : u8 {
     FFUI_ActionButton_Filled,
     FFUI_ActionButton_Empty,
-    FFUI_ActionButton_Selected,
     
     FFUI_Button_left,
     FFUI_Button_middle,

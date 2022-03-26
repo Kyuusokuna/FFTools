@@ -229,7 +229,7 @@ const path dat_extensions[10] = {
 };
 
 int main(int argc, char **argv) {
-	if (argc != 2)
+	if (argc != 3)
 		error_exit(1);
 
 	Array<File, 65536> files = {};

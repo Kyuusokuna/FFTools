@@ -27,6 +27,21 @@
     <ClInclude Include="src\types.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="data\Craft_Action_to_Icon_id.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="data\Craft_Job_to_Icon_id.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="libs\miniz\miniz.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\d3d11_util.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="libs\bc7e\$bc7e_ispc.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Natvis Include="src\Array.natvis" />
@@ -39,5 +54,24 @@
     <ClCompile Include="src\string.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="data\Craft_Action_to_Icon_id.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="data\Craft_Job_to_Icon_id.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="libs\miniz\miniz.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\d3d11_util.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Object Include="libs\bc7e\$bc7e.obj" />
+    <Object Include="libs\bc7e\$bc7e_avx.obj" />
+    <Object Include="libs\bc7e\$bc7e_sse2.obj" />
+    <Object Include="libs\bc7e\$bc7e_sse4.obj" />
+    <Object Include="libs\bc7e\$bc7e_avx2.obj" />
   </ItemGroup>
 </Project>

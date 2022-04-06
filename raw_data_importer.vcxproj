@@ -129,10 +129,12 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalIncludeDirectories>%(ProjectDir)libs;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>-Wno-unused-variable -Wno-unused-function %(AdditionalOptions)</AdditionalOptions>
+      <LanguageStandard_C>stdc11</LanguageStandard_C>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -146,16 +148,23 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalIncludeDirectories>%(ProjectDir)libs;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>-Wno-unused-variable -Wno-unused-function %(AdditionalOptions)</AdditionalOptions>
+      <LanguageStandard_C>stdc11</LanguageStandard_C>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="data\Craft_Action_to_Icon_id.h" />
+    <ClInclude Include="data\Craft_Job_to_Icon_id.h" />
+    <ClInclude Include="libs\bc7e\$bc7e_ispc.h" />
+    <ClInclude Include="libs\miniz\miniz.h" />
     <ClInclude Include="src\Array.h" />
+    <ClInclude Include="src\d3d11_util.h" />
     <ClInclude Include="src\defer.h" />
     <ClInclude Include="src\string.h" />
     <ClInclude Include="src\types.h" />
@@ -165,8 +174,19 @@
     <Natvis Include="src\string.natvis" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="data\Craft_Action_to_Icon_id.c" />
+    <ClCompile Include="data\Craft_Job_to_Icon_id.c" />
+    <ClCompile Include="libs\miniz\miniz.c" />
+    <ClCompile Include="src\d3d11_util.cpp" />
     <ClCompile Include="src\raw_data_importer.cpp" />
     <ClCompile Include="src\string.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <Object Include="libs\bc7e\$bc7e.obj" />
+    <Object Include="libs\bc7e\$bc7e_avx.obj" />
+    <Object Include="libs\bc7e\$bc7e_avx2.obj" />
+    <Object Include="libs\bc7e\$bc7e_sse2.obj" />
+    <Object Include="libs\bc7e\$bc7e_sse4.obj" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -343,22 +343,37 @@ IndexedFile *all_files[NUM_EXPANSIONS][NUM_PACK_TYPES];
 
 DXGI_FORMAT convert_ffxiv_to_dxgi_format(u32 format) {
 	switch (format) {
-		case 0x1441:
-			return DXGI_FORMAT_B5G5R5A1_UNORM;
-		case 0x1450:
-			return DXGI_FORMAT_B8G8R8A8_UNORM;
+		case 0x1130: return DXGI_FORMAT_A8_UNORM;
+		case 0x1131: return DXGI_FORMAT_R8_UNORM;
+		case 0x1440: return DXGI_FORMAT_B4G4R4A4_UNORM;
+		case 0x1441: return DXGI_FORMAT_B5G5R5A1_UNORM;
+		case 0x1450: return DXGI_FORMAT_B8G8R8A8_UNORM;
+		case 0x1451: return DXGI_FORMAT_B8G8R8X8_UNORM;
+		case 0x3420: return DXGI_FORMAT_BC1_UNORM;
+		case 0x3430: return DXGI_FORMAT_BC2_UNORM;
+		case 0x3431: return DXGI_FORMAT_BC3_UNORM;
 
 		default:
+			expect(false);
 			return (DXGI_FORMAT)0;
 	}
 }
 
-UINT get_pitch_of_format(DXGI_FORMAT format) {
+UINT get_bits_per_pixel_of_format(DXGI_FORMAT format) {
 	switch (format) {
-		case DXGI_FORMAT_B5G5R5A1_UNORM:
-			return 2;
-		case DXGI_FORMAT_B8G8R8A8_UNORM:
+		case DXGI_FORMAT_BC1_UNORM:
 			return 4;
+		case DXGI_FORMAT_A8_UNORM:
+		case DXGI_FORMAT_R8_UNORM:
+		case DXGI_FORMAT_BC2_UNORM:
+		case DXGI_FORMAT_BC3_UNORM:
+			return 8;
+		case DXGI_FORMAT_B4G4R4A4_UNORM:
+		case DXGI_FORMAT_B5G5R5A1_UNORM:
+			return 16;
+		case DXGI_FORMAT_B8G8R8A8_UNORM:
+		case DXGI_FORMAT_B8G8R8X8_UNORM:
+			return 32;
 
 		default:
 			expect(false);
@@ -746,7 +761,7 @@ struct Texture {
 Texture get_file_as_texture(File *file) {
 	expect(file->type == File_Type_Texture);
 
-	auto texture = create_texture(g_pd3dDevice, file->texture_info.width, file->texture_info.height, file->texture_info.texture_format, file->data.data, file->texture_info.width * get_pitch_of_format(file->texture_info.texture_format), 1, file->texture_info.num_mip_levels);
+	auto texture = create_texture(g_pd3dDevice, file->texture_info.width, file->texture_info.height, file->texture_info.texture_format, file->data.data, file->texture_info.width * get_bits_per_pixel_of_format(file->texture_info.texture_format) / 8, 1, file->texture_info.num_mip_levels);
 	expect(texture);
 
 	Texture result = {};
@@ -855,9 +870,6 @@ int main(int argc, char **argv) {
 	// CA_Texture
 	{
 		char filepath_buf[4096];
-
-		require_out_file(CA_Texture_header_file, out_dir + "/CA_Texture.h");
-		require_out_file(CA_Texture_code_file, out_dir + "/CA_Texture.cpp");
 
 		Array<Texture> loaded_textures = {};
 
@@ -1105,6 +1117,9 @@ int main(int argc, char **argv) {
 			auto index = get_index_of_icon(icon_id);
 			return find_uvs_for_texture(index);
 		};
+
+		require_out_file(CA_Texture_header_file, out_dir + "/CA_Texture.h");
+		require_out_file(CA_Texture_code_file, out_dir + "/CA_Texture.cpp");
 
 		write(CA_Texture_header_file, "#pragma once\n");
 		write(CA_Texture_header_file, "#include \"../src/types.h\"\n");

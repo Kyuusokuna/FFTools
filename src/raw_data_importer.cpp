@@ -1205,6 +1205,51 @@ int main(int argc, char **argv) {
 		report_compression("CA_Texture", CA_TEXTURE_uncompressed.length, CA_TEXTURE_compressed.length);
 	}
 
+	// General
+	{
+		require_out_file(compressed_data_header_file, out_dir + "/compressed_data.h");
+		require_out_file(compressed_data_code_file, out_dir + "/compressed_data.cpp");
+
+		write(compressed_data_header_file, "#pragma once\n");
+		write(compressed_data_header_file, "#include \"Items.h\"\n");
+		write(compressed_data_header_file, "#include \"Recipes.h\"\n");
+		write(compressed_data_header_file, "#include \"CA_Texture.h\"\n");
+		write(compressed_data_header_file, "\n");
+		write(compressed_data_header_file, "#ifdef __cplusplus\n");
+		write(compressed_data_header_file, "extern \"C\" {\n");
+		write(compressed_data_header_file, "#endif\n");
+		write(compressed_data_header_file, "\n");
+		write(compressed_data_header_file, "extern bool decompress_all_data();\n");
+		write(compressed_data_header_file, "\n");
+		write(compressed_data_header_file, "#ifdef __cplusplus\n");
+		write(compressed_data_header_file, "}\n");
+		write(compressed_data_header_file, "#endif\n");
+
+
+		write(compressed_data_code_file, "#include \"compressed_data.h\"\n");
+		write(compressed_data_code_file, "\n");
+		write(compressed_data_code_file, "#ifdef __cplusplus\n");
+		write(compressed_data_code_file, "extern \"C\" {\n");
+		write(compressed_data_code_file, "#endif\n");
+		write(compressed_data_code_file, "\n");
+		write(compressed_data_code_file, "bool decompress_all_data() {\n");
+		write(compressed_data_code_file, "    if(!Items_decompress())\n");
+		write(compressed_data_code_file, "        return false;\n");
+		write(compressed_data_code_file, "    \n");
+		write(compressed_data_code_file, "    if(!Recipes_decompress())\n");
+		write(compressed_data_code_file, "        return false;\n");
+		write(compressed_data_code_file, "    \n");
+		write(compressed_data_code_file, "    if(!Textures_decompress())\n");
+		write(compressed_data_code_file, "        return false;\n");
+		write(compressed_data_code_file, "    \n");
+		write(compressed_data_code_file, "    return true;\n");
+		write(compressed_data_code_file, "}\n");
+		write(compressed_data_code_file, "\n");
+		write(compressed_data_code_file, "#ifdef __cplusplus\n");
+		write(compressed_data_code_file, "}\n");
+		write(compressed_data_code_file, "#endif\n");
+	}
+
 
 	report_total_compression();
 

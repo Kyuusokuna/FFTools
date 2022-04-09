@@ -21,11 +21,11 @@ typedef struct ROString {
         return 0;
     }
 
-    const char *begin() {
+    const char *begin() const {
         return data;
     }
 
-    const char *end() {
+    const char *end() const {
         return data + length;
     }
     #endif
@@ -45,17 +45,17 @@ typedef struct ROString_Literal {
     operator ROString &() const { return *(ROString *)this; }
     operator const char *() const { return data; }
 
-    char operator[](int64_t index) {
+    char operator[](int64_t index) const {
         if (index < length)
             return data[index];
         return 0;
     }
 
-    const char *begin() {
+    const char *begin() const {
         return data;
     }
 
-    const char *end() {
+    const char *end() const {
         return data + length;
     }
     #endif
@@ -72,17 +72,17 @@ typedef struct String {
 
     operator ROString&() { return *(ROString *)this; }
 
-    char operator[](int64_t index) {
+    char operator[](int64_t index) const {
         if (index < length)
             return data[index];
         return 0;
     }
 
-    char *begin() {
+    char *begin() const {
         return data;
     }
 
-    char *end() {
+    char *end() const {
         return data + length;
     }
     #endif

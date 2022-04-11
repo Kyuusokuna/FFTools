@@ -311,7 +311,7 @@ Expansion str_to_expansion(ROString str) {
 enum File_Type : u32 {
 	File_Type_UNKNOWN0 = 0,
 	File_Type_UNKNOWN1 = 1,
-	File_Type_UNKNOWN2 = 2,
+	File_Type_General = 2,
 	File_Type_UNKNOWN3 = 3,
 	File_Type_Texture = 4,
 
@@ -327,16 +327,14 @@ struct IndexedFile {
 
 struct File {
 	File_Type type;
-	String data;
 
-	union {
-		struct {
-			DXGI_FORMAT texture_format;
-			u16 width;
-			u16 height;
-			u16 num_mip_levels;
-		} texture_info;
-	};
+	u32 uncompressed_length;
+	u32 offset_to_data;
+	u16 num_parts;
+
+	u16 unknown;
+
+	String data;
 };
 
 IndexedFile *all_files[NUM_EXPANSIONS][NUM_PACK_TYPES];
@@ -401,10 +399,10 @@ bool get_file(Expansion expansion, Pack_Type pack_type, u32 crc32_of_path, File 
 		u32 type;
 
 		u32 uncompressed_length;
-		u32 unknown0;
-		u32 unknown1;
+		u32 num_128byte_blocks_to_next_file;
+		u32 num_128byte_blocks_in_this_file;
 		u16 num_parts;
-		u16 unknown2;
+		u16 unknown;
 	};
 
 
@@ -414,111 +412,20 @@ bool get_file(Expansion expansion, Pack_Type pack_type, u32 crc32_of_path, File 
 	expect(header.type != File_Type_UNKNOWN0);
 	expect(header.type < NUM_FILE_TYPES);
 
-	if (!result)
-		return true;
-	
-	result->type = (File_Type)header.type;
+	expect(header.num_128byte_blocks_to_next_file >= header.num_128byte_blocks_in_this_file);
 
-	switch ((File_Type)header.type) {
-		case File_Type_UNKNOWN1:
-			return true;
-		case File_Type_UNKNOWN2:
-			return true;
-		case File_Type_UNKNOWN3:
-			return true;
+	auto file_len = header.num_128byte_blocks_in_this_file << 7;
+	expect(data.length >= (file_len + header.offset_to_data - sizeof(File_Header)));
 
+	if (result) {
+		result->type = (File_Type)header.type;
+		result->uncompressed_length = header.uncompressed_length;
+		result->num_parts = header.num_parts;
+		result->unknown = header.unknown;
 
-		case File_Type_Texture: {
-			struct Mip_Map_Info {
-				u32 offset_in_data;
-				u32 compressed_size;
-
-				u32 uncompressed_size;
-				u32 unknown1;
-				u32 num_chunks;
-			};
-
-			expect(header.offset_to_data >= sizeof(header) + header.num_parts * sizeof(Mip_Map_Info))
-			expect(data.length >= header.num_parts * sizeof(Mip_Map_Info));
-
-			Mip_Map_Info *mip_map_infos = (Mip_Map_Info *)data.data;
-			::advance(data, header.num_parts * sizeof(Mip_Map_Info));
-
-			char *end = start.data;
-			for (int i = 0; i < header.num_parts; i++)
-				end = max(end, start.data + header.offset_to_data + mip_map_infos[i].offset_in_data + mip_map_infos[i].compressed_size);
-
-			expect(start.length >= end - start.data);
-
-			data.data = start.data;
-			data.length = end - start.data;
-			::advance(data, header.offset_to_data);
-			auto data_start = data;
-
-			struct Texture_Header {
-				u32 unknown0;
-				u32 texture_format;
-				u16 width;
-				u16 height;
-				u16 unknown1;
-				u16 num_mip_levels;
-			};
-
-			Texture_Header texture_header = {};
-			expect(read(data, &texture_header));
-
-			DXGI_FORMAT format = convert_ffxiv_to_dxgi_format(texture_header.texture_format);
-			expect(format);
-
-			// TODO: get rid of this.
-			expect(texture_header.unknown1 == 1);
-			// TODO: get rid of this.
-			expect(header.num_parts == 1);
-			expect(texture_header.num_mip_levels == 1);
-
-
-			struct Chunk_Header {
-				u32 chunk_header_length;
-				u32 unknown1;
-				u32 compressed_length;
-				u32 uncompressed_length;
-			};
-
-			data = data_start;
-			::advance(data, mip_map_infos[0].offset_in_data);
-
-			u8 *mip_data = (u8 *)malloc(mip_map_infos[0].uncompressed_size);
-			u64 num_bytes_decompressed = 0;
-
-			for (int i = 0; i < mip_map_infos[0].num_chunks; i++) {
-				expect(data.length >= sizeof(Chunk_Header));
-				Chunk_Header *chunk_header = (Chunk_Header *)data.data;
-
-				expect(chunk_header->chunk_header_length == sizeof(Chunk_Header));
-				expect(chunk_header->compressed_length <= data.length);
-
-				auto actual_num_bytes_decompressed = tinfl_decompress_mem_to_mem(mip_data + num_bytes_decompressed, chunk_header->uncompressed_length, data.data + sizeof(Chunk_Header), chunk_header->compressed_length, 0);
-				expect(actual_num_bytes_decompressed == chunk_header->uncompressed_length);
-
-				num_bytes_decompressed += actual_num_bytes_decompressed;
-				::advance(data, align_to_pow2(sizeof(Chunk_Header) + chunk_header->compressed_length, 128));
-			}
-
-			expect(num_bytes_decompressed == mip_map_infos[0].uncompressed_size);
-
-			result->texture_info.texture_format = format;
-			result->texture_info.width = texture_header.width;
-			result->texture_info.height = texture_header.height;
-			result->texture_info.num_mip_levels = texture_header.num_mip_levels;
-
-			result->data.data = (char *)mip_data;
-			result->data.length = num_bytes_decompressed;
-
-		} break;
-		
-		default:
-			expect(false);
-			break;
+		result->data.data = start.data + sizeof(File_Header);
+		result->data.length = file_len + header.offset_to_data - sizeof(File_Header);
+		result->offset_to_data = header.offset_to_data - sizeof(File_Header);
 	}
 
 
@@ -653,7 +560,7 @@ void init_file_table(char *base_dir) {
 
 				#if VERIFY_ALL_FILES
 				File test_result;
-				auto test = get_file((Expansion)pack_expansion, (Pack_Type)pack_type, crc32, &test_result);
+				auto test = get_file((Expansion)pack_expansion, (Pack_Type)pack_type, crc32, 0);// &test_result);
 				expect(test);
 				#endif
 			}
@@ -755,24 +662,140 @@ void init_d3d11() {
 struct Texture {
 	s32 width;
 	s32 height;
-	ID3D11ShaderResourceView *data;
+
+	DXGI_FORMAT format;
+	u16 num_mip_levels;
+
+	String data;
 };
 
-Texture get_file_as_texture(File *file) {
+Texture convert_file_to_texture(File *file) {
 	expect(file->type == File_Type_Texture);
 
-	auto texture = create_texture(g_pd3dDevice, file->texture_info.width, file->texture_info.height, file->texture_info.texture_format, file->data.data, file->texture_info.width * get_bits_per_pixel_of_format(file->texture_info.texture_format) / 8, 1, file->texture_info.num_mip_levels);
-	expect(texture);
+	auto data = file->data;
+
+	struct Part_Info {
+		u32 offset_in_data;
+		u32 compressed_size;
+
+		u32 uncompressed_size;
+		u32 unknown;
+		u32 num_chunks;
+	};
+
+
+	expect(file->offset_to_data >= file->num_parts * sizeof(Part_Info)); // Test == 
+	expect(data.length >= file->num_parts * sizeof(Part_Info));
+
+	Part_Info *part_infos = (Part_Info *)data.data;
+	::advance(data, file->offset_to_data);
+
+	u32 total_uncompressed_size_of_parts = 0;
+	for (int i = 0; i < file->num_parts; i++) {
+		expect(part_infos[i].unknown == 0);
+		expect(data.length >= (part_infos[i].offset_in_data + part_infos[i].compressed_size));
+		total_uncompressed_size_of_parts += part_infos[i].uncompressed_size;
+	}
+	expect(total_uncompressed_size_of_parts == file->uncompressed_length - 80);
+	
+	struct Texture_Header {
+		u16 unknown0;
+		u16 unknown1;
+		u32 texture_format;
+		u16 width;
+		u16 height;
+		u16 unknown2;
+		u16 num_mip_levels;
+	};
+
+	expect(data.length >= sizeof(Texture_Header));
+	Texture_Header *texture_header = (Texture_Header *)data.data;
+	expect(file->num_parts == texture_header->num_mip_levels);
+
+	DXGI_FORMAT format = convert_ffxiv_to_dxgi_format(texture_header->texture_format);
+	expect(format);
+
+	// TODO: get rid of this.
+	expect(texture_header->unknown0 == 0);
+	// TODO: get rid of this.
+	expect(texture_header->unknown1 == 128);
+
+
+	// TODO: get rid of this.
+	expect(texture_header->unknown2 == 1);
+	// TODO: get rid of this.
+	expect(file->num_parts == 1);
+	// TODO: get rid of this.
+	expect(texture_header->num_mip_levels == 1);
+
+
+	u8 *texture_data = (u8 *)malloc(total_uncompressed_size_of_parts);
+	u32 num_bytes_decompressed = 0;
+
+	struct Chunk_Header {
+		u32 chunk_header_length;
+		u32 unknown1;
+		u32 compressed_length;
+		u32 uncompressed_length;
+	};
+
+	for (int i = 0; i < file->num_parts; i++) {
+		auto mip_data = data;
+		::advance(mip_data, part_infos[i].offset_in_data);
+		mip_data.length = part_infos[i].compressed_size;
+
+		u32 mip_bytes_decompressed = 0;
+		for (int j = 0; j < part_infos[i].num_chunks; j++) {
+			expect(mip_data.length >= sizeof(Chunk_Header));
+			Chunk_Header *chunk_header = (Chunk_Header *)mip_data.data;
+
+			expect(chunk_header->chunk_header_length == sizeof(Chunk_Header));
+			expect(chunk_header->compressed_length <= mip_data.length);
+
+			auto chunk_num_bytes_decompressed = tinfl_decompress_mem_to_mem(texture_data + num_bytes_decompressed + mip_bytes_decompressed, chunk_header->uncompressed_length, mip_data.data + sizeof(Chunk_Header), chunk_header->compressed_length, 0);
+			expect(chunk_num_bytes_decompressed == chunk_header->uncompressed_length);
+
+			mip_bytes_decompressed += chunk_num_bytes_decompressed;
+			::advance(mip_data, align_to_pow2(sizeof(Chunk_Header) + chunk_header->compressed_length, 128));
+		}
+
+		expect(mip_bytes_decompressed == part_infos[i].uncompressed_size)
+		num_bytes_decompressed += mip_bytes_decompressed;
+	}
+	expect(num_bytes_decompressed == file->uncompressed_length - 80);
 
 	Texture result = {};
-	result.width = file->texture_info.width;
-	result.height = file->texture_info.height;
-	result.data = texture;
+	result.width = texture_header->width;
+	result.height = texture_header->height;
+	result.format = format;
+	result.num_mip_levels = texture_header->num_mip_levels;
+	result.data.data = (char *)texture_data;
+	result.data.length = num_bytes_decompressed;
 
 	return result;
 }
 
-void copy_texture_to_atlas(Texture texture, u32 x, u32 y) {
+struct GPUTexture : Texture {
+	ID3D11ShaderResourceView *gpu_texture;
+};
+
+GPUTexture upload_texture_to_gpu(Texture *texture) {
+	auto gpu_texture = create_texture(g_pd3dDevice, texture->width, texture->height, texture->format, texture->data.data, texture->width * get_bits_per_pixel_of_format(texture->format) / 8, 1, texture->num_mip_levels);
+	expect(gpu_texture);
+
+	GPUTexture result = {};
+	result.width = texture->width;
+	result.height = texture->height;
+	result.format = texture->format;
+	result.num_mip_levels = texture->num_mip_levels;
+	result.data = texture->data;
+	result.gpu_texture = gpu_texture;
+
+	return result;
+}
+
+
+void copy_texture_to_atlas(GPUTexture texture, u32 x, u32 y) {
 	D3D11_MAPPED_SUBRESOURCE mapped_offset;
 	expect(g_pd3dDeviceContext->Map(offset_buffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped_offset) == S_OK);
 
@@ -781,7 +804,7 @@ void copy_texture_to_atlas(Texture texture, u32 x, u32 y) {
 
 	g_pd3dDeviceContext->Unmap(offset_buffer, 0);
 
-	g_pd3dDeviceContext->CSSetShaderResources(0, 1, &texture.data);
+	g_pd3dDeviceContext->CSSetShaderResources(0, 1, &texture.gpu_texture);
 	g_pd3dDeviceContext->Dispatch(texture.width / 4, texture.height / 4, 1);
 }
 
@@ -866,12 +889,26 @@ int main(int argc, char **argv) {
 	printf("Found %u files in FFXIV filesystem.\n", total_num_files);
 	printf("Total hashtable overhead %u bytes.\n", total_hashtable_overhead);
 
+	File root_exl;
+	expect(get_file("exd/root.exl", &root_exl));
 
+	File Item_exh;
+	expect(get_file("exd/item.exh", &Item_exh));
+
+	File Item_exd;
+	expect(get_file("exd/item_0.exd", &Item_exd));
+
+	//File test;
+	//get_file("ui/icon/001000/001501_hr1.tex", &test);
+
+
+	int k = 0;
+	
 	// CA_Texture
 	{
 		char filepath_buf[4096];
 
-		Array<Texture> loaded_textures = {};
+		Array<GPUTexture> loaded_textures = {};
 
 		struct Loaded_Icon {
 			u32 id;
@@ -898,10 +935,14 @@ int main(int argc, char **argv) {
 			auto texture = create_texture(g_pd3dDevice, width, height, DXGI_FORMAT_R8G8B8A8_UNORM, data, width * sizeof(u32), 1, 1);
 			expect(texture);
 
-			Texture loaded_texture = {};
+			GPUTexture loaded_texture = {};
 			loaded_texture.width = width;
 			loaded_texture.height = height;
-			loaded_texture.data = texture;
+			loaded_texture.format = DXGI_FORMAT_R8G8B8A8_UNORM;
+			loaded_texture.num_mip_levels = 1;
+			loaded_texture.data.data = (char *)data;
+			loaded_texture.data.length = width * height * 4;
+			loaded_texture.gpu_texture = texture;
 
 			auto index = loaded_textures.count;
 			loaded_textures.add(loaded_texture);
@@ -913,15 +954,16 @@ int main(int argc, char **argv) {
 			File file = {};
 			expect(get_file(filepath, &file));
 
-			auto texture = get_file_as_texture(&file);
+			auto texture = convert_file_to_texture(&file);
+			auto gpu_texture = upload_texture_to_gpu(&texture);
 
 			auto index = loaded_textures.count;
-			loaded_textures.add(texture);
+			loaded_textures.add(gpu_texture);
 
 			return index;
 		};
 
-		auto load_icon = [&](u32 id) -> Texture &{
+		auto load_icon = [&](u32 id) -> GPUTexture &{
 			auto index = get_index_of_icon(id);
 			if (index)
 				return loaded_textures[index];

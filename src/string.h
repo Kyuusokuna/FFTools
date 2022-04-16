@@ -2,7 +2,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define STR(x) (x).length, (x).data
+#define STR(x) (int)(x).length, (x).data
 
 typedef struct ROString {
     int64_t length;

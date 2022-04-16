@@ -23,6 +23,7 @@
 #include "string.h"
 #include "Array.h"
 #include "defer.h"
+#include "Views.h"
 
 #include "../data/Craft_Job_to_Icon_id.h"
 #include "../data/Craft_Action_to_Icon_id.h"
@@ -71,7 +72,7 @@ void error_exit(int code) {
 
 #define align_to_pow2(x, pow2) (((x) + ((pow2) - 1)) & ~((pow2) - 1))
 
-String map_file(const char *path) {
+Byte_View map_file(const char *path) {
 	auto file = CreateFileA(path, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
 	if (file == INVALID_HANDLE_VALUE)
 		return { };
@@ -86,14 +87,14 @@ String map_file(const char *path) {
 		return { };
 	defer{ CloseHandle(mapping); };
 
-	auto data = MapViewOfFile(mapping, FILE_MAP_READ, 0, 0, 0);
+	auto data = (u8 *)MapViewOfFile(mapping, FILE_MAP_READ, 0, 0, 0);
 	if (!data)
 		return { };
 
-	return { file_size.QuadPart, (char *)data };
+	return Byte_View(data, file_size.QuadPart);
 }
 
-String map_file(String path) {
+Byte_View map_file(String path) {
 	if (path.length > 4095)
 		return { };
 
@@ -103,7 +104,7 @@ String map_file(String path) {
 	return map_file(buf);
 }
 
-void unmap_file(String file) {
+void unmap_file(Byte_View file) {
 	UnmapViewOfFile(file.data);
 }
 
@@ -147,6 +148,8 @@ constexpr const u32 crc32_table[] = {
 };
 
 constexpr u32 crc32_add_char(u32 crc32, char data) {
+	if ('A' <= data && data <= 'Z')
+		data += 0x20;
 	return (crc32 >> 8) ^ crc32_table[(data ^ crc32) & 0xFF];
 }
 
@@ -322,19 +325,19 @@ struct IndexedFile {
 	UT_hash_handle hh;
 	u32 filepath_crc32;
 
-	String data;
+	Byte_View data;
 };
 
 struct File {
 	File_Type type;
 
 	u32 uncompressed_length;
-	u32 offset_to_data;
 	u16 num_parts;
 
 	u16 unknown;
 
-	String data;
+	Byte_View header;
+	Byte_View data;
 };
 
 IndexedFile *all_files[NUM_EXPANSIONS][NUM_PACK_TYPES];
@@ -391,8 +394,7 @@ bool get_file(Expansion expansion, Pack_Type pack_type, u32 crc32_of_path, File 
 	if (!indexed_file)
 		return false;
 
-	String start = indexed_file->data;
-	String data = start;
+	Byte_View data = indexed_file->data;
 
 	struct File_Header {
 		u32 offset_to_data;
@@ -405,27 +407,25 @@ bool get_file(Expansion expansion, Pack_Type pack_type, u32 crc32_of_path, File 
 		u16 unknown;
 	};
 
+	auto header = Type_View<File_Header>(data);
+	expect(header);
 
-	File_Header header = {};
-	expect(read(data, &header));
+	expect(header->type != File_Type_UNKNOWN0);
+	expect(header->type < NUM_FILE_TYPES);
 
-	expect(header.type != File_Type_UNKNOWN0);
-	expect(header.type < NUM_FILE_TYPES);
+	expect(header->num_128byte_blocks_to_next_file >= header->num_128byte_blocks_in_this_file);
 
-	expect(header.num_128byte_blocks_to_next_file >= header.num_128byte_blocks_in_this_file);
-
-	auto file_len = header.num_128byte_blocks_in_this_file << 7;
-	expect(data.length >= (file_len + header.offset_to_data - sizeof(File_Header)));
+	auto file_len = header->num_128byte_blocks_in_this_file << 7;
+	expect(data.length >= file_len + header->offset_to_data);
 
 	if (result) {
-		result->type = (File_Type)header.type;
-		result->uncompressed_length = header.uncompressed_length;
-		result->num_parts = header.num_parts;
-		result->unknown = header.unknown;
+		result->type = (File_Type)header->type;
+		result->uncompressed_length = header->uncompressed_length;
+		result->num_parts = header->num_parts;
+		result->unknown = header->unknown;
 
-		result->data.data = start.data + sizeof(File_Header);
-		result->data.length = file_len + header.offset_to_data - sizeof(File_Header);
-		result->offset_to_data = header.offset_to_data - sizeof(File_Header);
+		result->header = Byte_View(data, sizeof(File_Header), header->offset_to_data - sizeof(File_Header));
+		result->data = Byte_View(data, header->offset_to_data, file_len);
 	}
 
 
@@ -481,7 +481,7 @@ void init_file_table(char *base_dir) {
 				error_exit(1);
 			defer{ unmap_file(index_data); };
 
-			String dat_files[10] = {};
+			Byte_View dat_files[10] = {};
 
 			for (int i = 0; i < 10; i++) {
 				auto dat_path = path.replace_extension(dat_extensions[i]);
@@ -492,63 +492,51 @@ void init_file_table(char *base_dir) {
 				expect(dat_files[i].data);
 			}
 
-			auto start = index_data;
+			auto data = index_data;
 
-			SqPack_Header sqpack_header;
-			expect(read(start, &sqpack_header));
-			expect(sqpack_header.magic == *(u64 *)"SqPack\0\0");
-			expect(sqpack_header.length_of_header == sizeof(sqpack_header));
-			expect(sqpack_header.unknown == 0);
-			expect(sqpack_header.version == 1);
-			expect(sqpack_header.type == SqPack_Header::Type_Index);
+			auto sqpack_header = Type_View<SqPack_Header>(data);
+			expect(sqpack_header);
+			expect(sqpack_header->magic == *(u64 *)"SqPack\0\0");
+			expect(sqpack_header->length_of_header == sizeof(SqPack_Header));
+			expect(sqpack_header->unknown == 0);
+			expect(sqpack_header->version == 1);
+			expect(sqpack_header->type == SqPack_Header::Type_Index);
 
-			SqPack_Index2_Header index_header;
-			expect(read(start, &index_header));
-			expect(index_header.length_of_header == sizeof(index_header));
-			expect(index_header.file_indices_size % 8 == 0);
+			auto index_header = Type_View<SqPack_Index2_Header>(data, sizeof(SqPack_Header));
+			expect(index_header);
+			expect(index_header->length_of_header == sizeof(SqPack_Index2_Header));
+			expect(index_header->file_indices_size % 8 == 0);
 
-			start = index_data;
-			::advance(start, index_header.file_indices_offset);
-			expect(start.length >= index_header.file_indices_size);
+			data = Byte_View(data, index_header->file_indices_offset);
+			expect(data.length >= index_header->file_indices_size);
 
-			auto num_files = index_header.file_indices_size / 8;
+			auto num_files = index_header->file_indices_size / 8;
 			for (int i = 0; i < num_files; i++) {
-				u32 crc32;
-				u32 offset_and_file;
+				auto crc32 = Type_View<u32>(data, 0);
+				auto offset_and_file = Type_View<u32>(data, 4);
 
-				expect(read(start, &crc32));
-				expect(read(start, &offset_and_file));
+				expect(crc32);
+				expect(offset_and_file);
 
-				auto empty_file = offset_and_file & 0x1;
-				auto file_index = (offset_and_file & 0xF) >> 1;
-				auto offset = (offset_and_file & 0xFFFFFFF0) << 3;
+				data = Byte_View(data, 8);
 
-				expect(dat_files[file_index].data);
-				IndexedFile file = {};
-				file.filepath_crc32 = crc32;
-				file.data = dat_files[file_index];
+				auto empty_file = *offset_and_file & 0x1;
+				auto file_index = (*offset_and_file & 0xF) >> 1;
+				auto offset = (*offset_and_file & 0xFFFFFFF0) << 3;
 
 				if (empty_file) {
 					expect(!file_index);
 					expect(!offset);
 
-					#if 0
-					file.data.length = 0;
-
-					IndexedFile *file_ptr = 0;
-					HASH_FIND_INT(files, &file.filepath_crc32, file_ptr);
-					expect(!file_ptr);
-
-					file_ptr = new IndexedFile(file);
-					HASH_ADD_INT(files, filepath_crc32, file_ptr);
-					#endif
-
 					continue;
 				}
 
+				expect(dat_files[file_index].data);
 				expect(offset);
 
-				::advance(file.data, offset);
+				IndexedFile file = {};
+				file.filepath_crc32 = *crc32;
+				file.data = Byte_View(dat_files[file_index], offset);
 				expect(file.data.length);
 
 				IndexedFile *file_ptr = 0;
@@ -659,6 +647,43 @@ void init_d3d11() {
 	g_pd3dDeviceContext->CSSetConstantBuffers(0, 1, &offset_buffer);
 }
 
+void decompress_chunks(Byte_View destination, Byte_View chunks_data, u32 num_chunks) {
+	struct Chunk_Header {
+		u32 chunk_header_length;
+		u32 unknown;
+		u32 compressed_length;
+		u32 uncompressed_length;
+	};
+
+	for (int i = 0; i < num_chunks; i++) {
+		auto chunk_header = Type_View<Chunk_Header>(chunks_data);
+		expect(chunk_header);
+
+		expect(chunk_header->chunk_header_length == sizeof(Chunk_Header));
+		expect(chunk_header->unknown == 0);
+		expect(chunk_header->uncompressed_length <= destination.length);
+
+		if (chunk_header->compressed_length == 32000) {
+			expect(chunk_header->uncompressed_length + sizeof(Chunk_Header) <= chunks_data.length);
+			memcpy(destination.data, chunks_data.data + sizeof(Chunk_Header), chunk_header->uncompressed_length);
+
+			destination = Byte_View(destination, chunk_header->uncompressed_length);
+			chunks_data = Byte_View(chunks_data, align_to_pow2(sizeof(Chunk_Header) + chunk_header->uncompressed_length, 128));
+		} else {
+			expect(chunk_header->compressed_length + sizeof(Chunk_Header) <= chunks_data.length);
+
+			auto bytes_decompressed = tinfl_decompress_mem_to_mem(destination.data, chunk_header->uncompressed_length, chunks_data.data + sizeof(Chunk_Header), chunk_header->compressed_length, 0);
+			expect(bytes_decompressed == chunk_header->uncompressed_length);
+
+			destination = Byte_View(destination, chunk_header->uncompressed_length);
+			chunks_data = Byte_View(chunks_data, align_to_pow2(sizeof(Chunk_Header) + chunk_header->compressed_length, 128));
+		}
+	}
+
+	expect(destination.length == 0);
+	expect(chunks_data.length == 0);
+}
+
 struct Texture {
 	s32 width;
 	s32 height;
@@ -666,13 +691,11 @@ struct Texture {
 	DXGI_FORMAT format;
 	u16 num_mip_levels;
 
-	String data;
+	Byte_View data;
 };
 
 Texture convert_file_to_texture(File *file) {
 	expect(file->type == File_Type_Texture);
-
-	auto data = file->data;
 
 	struct Part_Info {
 		u32 offset_in_data;
@@ -683,17 +706,13 @@ Texture convert_file_to_texture(File *file) {
 		u32 num_chunks;
 	};
 
-
-	expect(file->offset_to_data >= file->num_parts * sizeof(Part_Info)); // Test == 
-	expect(data.length >= file->num_parts * sizeof(Part_Info));
-
-	Part_Info *part_infos = (Part_Info *)data.data;
-	::advance(data, file->offset_to_data);
+	auto part_infos = Array_View<Part_Info>(file->header, file->num_parts);
+	expect(part_infos.count == file->num_parts);
 
 	u32 total_uncompressed_size_of_parts = 0;
 	for (int i = 0; i < file->num_parts; i++) {
 		expect(part_infos[i].unknown == 0);
-		expect(data.length >= (part_infos[i].offset_in_data + part_infos[i].compressed_size));
+		expect(file->data.length >= part_infos[i].offset_in_data + part_infos[i].compressed_size);
 		total_uncompressed_size_of_parts += part_infos[i].uncompressed_size;
 	}
 	expect(total_uncompressed_size_of_parts == file->uncompressed_length - 80);
@@ -708,8 +727,9 @@ Texture convert_file_to_texture(File *file) {
 		u16 num_mip_levels;
 	};
 
-	expect(data.length >= sizeof(Texture_Header));
-	Texture_Header *texture_header = (Texture_Header *)data.data;
+
+	auto texture_header = Type_View<Texture_Header>(file->data);
+	expect(texture_header);
 	expect(file->num_parts == texture_header->num_mip_levels);
 
 	DXGI_FORMAT format = convert_ffxiv_to_dxgi_format(texture_header->texture_format);
@@ -730,47 +750,27 @@ Texture convert_file_to_texture(File *file) {
 
 
 	u8 *texture_data = (u8 *)malloc(total_uncompressed_size_of_parts);
+	auto decompressed_data = Byte_View(texture_data, total_uncompressed_size_of_parts);
 	u32 num_bytes_decompressed = 0;
 
-	struct Chunk_Header {
-		u32 chunk_header_length;
-		u32 unknown1;
-		u32 compressed_length;
-		u32 uncompressed_length;
-	};
-
 	for (int i = 0; i < file->num_parts; i++) {
-		auto mip_data = data;
-		::advance(mip_data, part_infos[i].offset_in_data);
-		mip_data.length = part_infos[i].compressed_size;
+		auto destination = Byte_View(decompressed_data, num_bytes_decompressed, part_infos[i].uncompressed_size);
+		expect(destination.length == part_infos[i].uncompressed_size);
 
-		u32 mip_bytes_decompressed = 0;
-		for (int j = 0; j < part_infos[i].num_chunks; j++) {
-			expect(mip_data.length >= sizeof(Chunk_Header));
-			Chunk_Header *chunk_header = (Chunk_Header *)mip_data.data;
+		auto source = Byte_View(file->data, part_infos[i].offset_in_data, part_infos[i].compressed_size);
+		expect(source.length == part_infos[i].compressed_size);
 
-			expect(chunk_header->chunk_header_length == sizeof(Chunk_Header));
-			expect(chunk_header->compressed_length <= mip_data.length);
-
-			auto chunk_num_bytes_decompressed = tinfl_decompress_mem_to_mem(texture_data + num_bytes_decompressed + mip_bytes_decompressed, chunk_header->uncompressed_length, mip_data.data + sizeof(Chunk_Header), chunk_header->compressed_length, 0);
-			expect(chunk_num_bytes_decompressed == chunk_header->uncompressed_length);
-
-			mip_bytes_decompressed += chunk_num_bytes_decompressed;
-			::advance(mip_data, align_to_pow2(sizeof(Chunk_Header) + chunk_header->compressed_length, 128));
-		}
-
-		expect(mip_bytes_decompressed == part_infos[i].uncompressed_size)
-		num_bytes_decompressed += mip_bytes_decompressed;
+		decompress_chunks(destination, source, part_infos[i].num_chunks);
+		num_bytes_decompressed += part_infos[i].uncompressed_size;
 	}
-	expect(num_bytes_decompressed == file->uncompressed_length - 80);
+	expect(num_bytes_decompressed == total_uncompressed_size_of_parts);
 
 	Texture result = {};
 	result.width = texture_header->width;
 	result.height = texture_header->height;
 	result.format = format;
 	result.num_mip_levels = texture_header->num_mip_levels;
-	result.data.data = (char *)texture_data;
-	result.data.length = num_bytes_decompressed;
+	result.data = Byte_View(texture_data, num_bytes_decompressed);
 
 	return result;
 }
@@ -866,6 +866,564 @@ void report_total_compression() {
 	printf("\n");
 }
 
+Byte_View decompress_general_file(File *file) {
+	expect(file->type == File_Type_General);
+
+	struct Part_Info {
+		u32 offset_in_data;
+		u16 compressed_size;
+		u16 uncompressed_size;
+	};
+
+	auto part_infos = Array_View<Part_Info>(file->header, file->num_parts);
+	expect(part_infos.count == file->num_parts);
+
+	u32 total_uncompressed_size_of_parts = 0;
+	for (int i = 0; i < file->num_parts; i++) {
+		expect(file->data.length >= (part_infos[i].offset_in_data + part_infos[i].compressed_size));
+		total_uncompressed_size_of_parts += part_infos[i].uncompressed_size;
+	}
+	expect(total_uncompressed_size_of_parts == file->uncompressed_length);
+
+	u8 *uncompressed_data = (u8 *)malloc(total_uncompressed_size_of_parts);
+	decompress_chunks(Byte_View(uncompressed_data, total_uncompressed_size_of_parts), file->data, file->num_parts);
+
+	return Byte_View(uncompressed_data, total_uncompressed_size_of_parts);
+}
+
+void consume_new_line(String &str) {
+	while (str[0] == '\r' || str[0] == '\n')
+		::advance(str);
+}
+
+String eat_line(String &str) {
+	String start = str;
+
+	while (str.length && str[0] != '\r' && str[0] != '\n')
+		::advance(str);
+
+	start.length -= str.length;
+	consume_new_line(str);
+	return start;
+}
+
+String eat_until(String &str, char c) {
+	String start = str;
+
+	while (str.length && str[0] != c)
+		::advance(str);
+
+	start.length -= str.length;
+	return start;
+}
+
+s32 parse_int(String &str) {
+	bool negative = false;
+	while (str[0] == '-') {
+		negative = !negative;
+		::advance(str);
+	}
+
+	s32 value = 0;
+	while (str.length) {
+		if (!('0' <= str[0] && str[0] <= '9'))
+			break;
+
+		u8 digit = str[0] - '0';
+
+		if (negative) {
+			if (value < (INT_MIN + digit) / 10)
+				break;
+
+			value = value * 10 - digit;
+		} else {
+			if (value > (INT_MAX - digit) / 10)
+				break;
+
+			value = value * 10 + digit;
+		}
+
+		::advance(str);
+	}
+
+	return value;
+}
+
+struct Root_Info {
+	String name;
+	s32 id;
+};
+
+Array<Root_Info> parse_root_exl(File *file) {
+	auto file_data = decompress_general_file(file);
+	String data = String(file_data.length, (char *)file_data.data);
+
+	auto header = eat_line(data);
+	expect(header == "EXLT,2");
+
+	Array<Root_Info> result = {};
+	while (data.length) {
+		auto line = eat_line(data);
+		auto name = eat_until(line, ',');
+		::advance(line);
+		auto id = parse_int(line);
+
+		result.add({ .name = name, .id = id });
+	}
+
+
+	return result;
+}
+
+bool parse_exd_file(File *file) {
+	auto data = decompress_general_file(file);
+
+	struct EXDF_Header {
+		u32 magic;
+		u16 unknown0_0;
+		u16 unknown0_1;
+		u16 unknown1_0;
+		u16 unknown1_1;
+		u16 unknown2_0;
+		u16 unknown2_1;
+		u16 unknown3_0;
+		u16 unknown3_1;
+		u16 unknown4_0;
+		u16 unknown4_1;
+		u32 unknown5;
+		u32 unknown6;
+	};
+
+	auto header = Type_View<EXDF_Header>(data);
+	expect(header);
+	expect(header->magic == 0x46445845)
+
+
+	int k = 0;
+
+	return true;
+}
+
+template<typename T>
+void bswap(T &x) {
+	if constexpr (sizeof(T) == 8)
+		x = (T)__builtin_bswap64(x);
+	else if constexpr (sizeof(T) == 4)
+		x = (T)__builtin_bswap32(x);
+	else if constexpr (sizeof(T) == 2)
+		x = (T)__builtin_bswap16(x);
+	else if constexpr (sizeof(T) == 1)
+		return;
+	else
+		static_assert(!sizeof(T));
+}
+
+enum Column_Type : u16 {
+	Column_Type_STRING = 0,
+	Column_Type_BOOL = 1,
+
+	Column_Type_S8 = 2,
+	Column_Type_U8 = 3,
+
+	Column_Type_S16 = 4,
+	Column_Type_U16 = 5,
+
+	Column_Type_S32 = 6,
+	Column_Type_U32 = 7,
+
+	Column_Type_F32 = 9,
+	Column_Type_UNKNOWN11 = 11,
+
+	Column_Type_BIT0 = 25,
+	Column_Type_BIT1 = 26,
+	Column_Type_BIT2 = 27,
+	Column_Type_BIT3 = 28,
+	Column_Type_BIT4 = 29,
+	Column_Type_BIT5 = 30,
+	Column_Type_BIT6 = 31,
+	Column_Type_BIT7 = 32,
+};
+
+constexpr u8 Column_Type_to_num_bytes[] = {
+	[Column_Type_STRING] = 4,
+	[Column_Type_BOOL] = 1,
+
+	[Column_Type_S8] = 1,
+	[Column_Type_U8] = 1,
+
+	[Column_Type_S16] = 2,
+	[Column_Type_U16] = 2,
+
+	[Column_Type_S32] = 4,
+	[Column_Type_U32] = 4,
+
+	[Column_Type_F32] = 4,
+	[Column_Type_UNKNOWN11] = 4,
+
+	[Column_Type_BIT0] = 1,
+	[Column_Type_BIT1] = 1,
+	[Column_Type_BIT2] = 1,
+	[Column_Type_BIT3] = 1,
+	[Column_Type_BIT4] = 1,
+	[Column_Type_BIT5] = 1,
+	[Column_Type_BIT6] = 1,
+	[Column_Type_BIT7] = 1,
+};
+
+enum Language : u16 {
+	Language_Generic = 0,
+	Language_Japanese = 1,
+	Language_English = 2,
+	Language_German = 3,
+	Language_French = 4,
+	Language_Chinese_Simplified = 5,
+	Language_Chinese_Traditional = 6,
+	Language_Korean = 7,
+
+	NUM_LANGUAGES
+};
+
+const ROString Language_to_string[NUM_LANGUAGES] = {
+	[Language_Generic] = "",
+	[Language_Japanese] = "_ja",
+	[Language_English] = "_en",
+	[Language_German] = "_de",
+	[Language_French] = "_fr",
+	[Language_Chinese_Simplified] = "_chs",
+	[Language_Chinese_Traditional] = "_cht",
+	[Language_Korean] = "_ko",
+};
+
+template<typename T>
+struct Static_Array {
+	T *data;
+	u64 count;
+
+	Static_Array() : data(0), count(0) { }
+
+	Static_Array(u64 count) :
+		data((T *)calloc(1, count * sizeof(T))),
+		count(count) {
+	}
+
+	T &operator[](u64 index) {
+		return data[index];
+	}
+};
+
+template<typename T>
+struct Static_Array2D {
+	T *data;
+	u64 num_elements_per_row;
+	u64 num_rows;
+
+	Static_Array2D() : data(0), num_elements_per_row(0), num_rows(0) { }
+
+	Static_Array2D(u64 num_elements_per_row, u64 num_rows) :
+		data((T *)calloc(num_rows, num_elements_per_row * sizeof(T))),
+		num_elements_per_row(num_elements_per_row),
+		num_rows(num_rows) {
+	}
+
+	Array_View<T> operator[](u64 row_index) {
+		return Array_View<T>(Byte_View((u8 *)data + num_elements_per_row * sizeof(T) * row_index, num_elements_per_row * sizeof(T)), num_elements_per_row);
+	}
+
+	void free() {
+		if (data) {
+			::free(data);
+			data = 0;
+			num_elements_per_row = 0;
+			num_rows = 0;
+		}
+	}
+};
+
+struct Data_Cell {
+	Column_Type type;
+
+	union {
+		ROString STRING;
+		bool BOOL;
+
+		s8 S8;
+		u8 U8;
+
+		s16 S16;
+		u16 U16;
+
+		s32 S32;
+		u32 U32;
+
+		f32 F32;
+		u64 UNKNOWN11;
+
+		u8 BIT_FIELD;
+	};
+
+};
+
+struct [[gnu::packed]] Column_Info {
+	Column_Type type;
+	u16 byte_offset_in_row;
+};
+
+Data_Cell read_column(Byte_View row, Column_Info column_info) {
+	auto cell_data = Byte_View(row, column_info.byte_offset_in_row, Column_Type_to_num_bytes[column_info.type]);
+	expect(cell_data.length == Column_Type_to_num_bytes[column_info.type]);
+
+	Data_Cell cell = {};
+	cell.type = column_info.type;
+
+	switch (column_info.type) {
+		case Column_Type_STRING: break;
+		case Column_Type_BOOL: cell.BOOL = !!*(u8 *)cell_data.data; break;
+
+		case Column_Type_S8: cell.S8 = *(s8 *)cell_data.data; break;
+		case Column_Type_U8: cell.U8 = *(u8 *)cell_data.data; break;
+
+		case Column_Type_S16: cell.S16 = *(s16 *)cell_data.data; bswap(cell.S16); break;
+		case Column_Type_U16: cell.U16 = *(u16 *)cell_data.data; bswap(cell.U16); break;
+
+		case Column_Type_S32: cell.S32 = *(s32 *)cell_data.data; bswap(cell.S32); break;
+		case Column_Type_U32: cell.U32 = *(u32 *)cell_data.data; bswap(cell.U32); break;
+
+		case Column_Type_F32: cell.F32 = *(f32 *)cell_data.data; bswap(cell.F32); break;
+		case Column_Type_UNKNOWN11: cell.UNKNOWN11 = *(u64 *)cell_data.data; bswap(cell.UNKNOWN11); break;
+
+		case Column_Type_BIT0: case Column_Type_BIT1:
+		case Column_Type_BIT2: case Column_Type_BIT3:
+		case Column_Type_BIT4: case Column_Type_BIT5:
+		case Column_Type_BIT6: case Column_Type_BIT7:
+			cell.BIT_FIELD = *(u8 *)cell_data.data; break;
+
+		default:
+			expect(false); break;
+	}
+
+	return cell;
+};
+
+
+struct Data_Table {
+	u16 num_dimensions;
+	Static_Array2D<Data_Cell> localised_tables[NUM_LANGUAGES];
+
+	void free() {
+		for (int i = 0; i < NUM_LANGUAGES; i++)
+			localised_tables[i].free();
+		num_dimensions = 0;
+	}
+};
+
+bool parse_ex_file(const ROString name, Data_Table &result) {
+	char filename_buffer[512];
+	snprintf(filename_buffer, sizeof(filename_buffer), "exd/%.*s.exh", (int)name.length, name.data);
+
+	File file;
+	expect(get_file(filename_buffer, &file));
+
+	auto data = decompress_general_file(&file);
+	defer{ free(data.data); };
+
+	struct [[gnu::packed]] EXHF_Header {
+		u32 magic;
+		u16 unknown0;
+		u16 num_bytes_per_row;
+		u16 num_columns;
+		u16 num_data_files;
+		u16 num_languages;
+		u16 unknown2;
+		u16 num_dimensions;
+		u16 unknown3;
+		u16 unknown4;
+		u16 num_rows;
+		u32 unknown5;
+		u32 unknown6;
+	};
+
+	auto header = Type_View<EXHF_Header>(data);
+	expect(header);
+	expect(header->magic == 0x46485845);
+	expect(header->unknown0 == 768); // big endian 3
+	expect(header->unknown3 == 0);
+	expect(header->unknown4 == 0);
+	expect(header->unknown5 == 0);
+	expect(header->unknown6 == 0);
+
+	bswap(header->unknown0);
+	bswap(header->num_bytes_per_row);
+	bswap(header->num_columns);
+	bswap(header->num_data_files);
+	bswap(header->num_languages);
+	bswap(header->unknown2);
+	bswap(header->num_dimensions);
+	bswap(header->num_rows);
+
+	expect(header->num_dimensions == 1 || header->num_dimensions == 2);
+
+	auto column_infos = Array_View<Column_Info>(data, header->num_columns, sizeof(EXHF_Header));
+	expect(column_infos.count == header->num_columns);
+
+	for (auto &column_info : column_infos) {
+		bswap(column_info.type);
+		bswap(column_info.byte_offset_in_row);
+	}
+
+	struct [[gnu::packed]] Data_File_Info {
+		u32 start_index; // The row indices don't always start at 0. Some start at like 200k.
+		u32 num_rows_in_file; // This is only the number of rows in the file if there are multiple files. If there is only 1 file it seems to be random
+	};
+
+	auto data_file_infos = Array_View<Data_File_Info>(data, header->num_data_files, sizeof(EXHF_Header) + header->num_columns * sizeof(Column_Info));
+	expect(data_file_infos.count == header->num_data_files);
+
+	for (auto &data_file_info : data_file_infos) {
+		bswap(data_file_info.start_index);
+		bswap(data_file_info.num_rows_in_file);
+
+		// num_rows_in_file is only the number of rows in the file if there are multiple files, otherwise it is garbage
+		if(data_file_infos.count > 1)
+			expect(data_file_info.num_rows_in_file <= header->num_rows);
+	}
+
+	auto supported_languages = Array_View<Language>(data, header->num_languages, sizeof(EXHF_Header) + header->num_columns * sizeof(Column_Info) + header->num_data_files * sizeof(Data_File_Info));
+	expect(supported_languages.count == header->num_languages);
+
+	for (auto &language : supported_languages) {
+		expect(language < NUM_LANGUAGES);
+
+		u32 rows_filled = 0;
+		for (int i = 0; i < data_file_infos.count; i++) {
+			auto &part = data_file_infos[i];
+			snprintf(filename_buffer, sizeof(filename_buffer), "exd/%.*s_%u%.*s.exd", STR(name), part.start_index, STR(Language_to_string[language]));
+
+			File data_file;
+			bool got_file = get_file(filename_buffer, &data_file);
+
+			if (i == 0) {
+				if (!got_file)
+					break;
+
+				result.localised_tables[language] = Static_Array2D<Data_Cell>(header->num_columns + 2, header->num_rows);
+			}
+
+			expect(got_file);
+
+			auto data = decompress_general_file(&data_file);
+			defer{ free(data.data); };
+
+			struct [[gnu::packed]] EXDF_Header {
+				u32 magic;
+				u32 unknown0;
+				u32 row_infos_num_bytes;
+				u32 num_bytes_in_data;
+				u32 unknown3;
+				u32 unknown4;
+				u32 unknown5;
+				u32 unknown6;
+			};
+
+			auto data_header = Type_View<EXDF_Header>(data);
+			expect(data_header);
+			expect(data_header->magic == 0x46445845);
+			expect(data_header->unknown3 == 0);
+			expect(data_header->unknown4 == 0);
+			expect(data_header->unknown5 == 0);
+			expect(data_header->unknown6 == 0);
+
+			bswap(data_header->unknown0);
+			bswap(data_header->row_infos_num_bytes);
+			bswap(data_header->num_bytes_in_data);
+
+			expect(data.length == sizeof(EXDF_Header) + data_header->row_infos_num_bytes + data_header->num_bytes_in_data);
+
+			struct [[gnu::packed]] Row_Info {
+				u32 row_index;
+				u32 offset_in_file;
+			};
+
+			auto num_row_infos = data_header->row_infos_num_bytes / sizeof(Row_Info);
+			if (data_file_infos.count > 1)
+				expect(num_row_infos == part.num_rows_in_file);
+
+			auto row_infos = Array_View<Row_Info>(data, num_row_infos, sizeof(EXDF_Header));
+			expect(row_infos.count == num_row_infos);
+
+			for (int i = 0; i < row_infos.count; i++) {
+				auto &row_info = row_infos[i];
+
+				bswap(row_info.row_index);
+				bswap(row_info.offset_in_file);
+
+				auto row_data = Byte_View(data, row_info.offset_in_file);
+				expect(row_data.length >= header->num_bytes_per_row);
+
+				if (header->num_dimensions == 1) {
+					auto row = result.localised_tables[language][rows_filled];
+
+					row[0].type = Column_Type_U32;
+					row[0].U32 = row_info.row_index;
+
+					row[1].type = Column_Type_U16;
+					row[1].U16 = 0;
+
+					for(int k = 0; k < column_infos.count; k++)
+						row[k + 2] = read_column(row_data, column_infos[k]);
+
+					rows_filled++;
+				} else if (header->num_dimensions == 2) {
+					struct [[gnu::packed]] Sub_Row_Info {
+						u32 num_bytes_of_all_sub_rows;
+						u16 num_sub_rows;
+					};
+
+					auto sub_row_info = Type_View<Sub_Row_Info>(row_data);
+					expect(sub_row_info);
+
+					bswap(sub_row_info->num_bytes_of_all_sub_rows);
+					bswap(sub_row_info->num_sub_rows);
+
+					row_data = Byte_View(row_data, sizeof(Sub_Row_Info), sub_row_info->num_bytes_of_all_sub_rows);
+					expect(row_data.length == sub_row_info->num_bytes_of_all_sub_rows);
+
+					expect(sub_row_info->num_sub_rows * (header->num_bytes_per_row + sizeof(u16)) <= row_data.length);
+
+					for (int j = 0; j < sub_row_info->num_sub_rows; j++) {
+						auto row = result.localised_tables[language][rows_filled];
+
+						row[0].type = Column_Type_U32;
+						row[0].U32 = row_info.row_index;
+
+						auto sub_row_data = Byte_View(row_data, j * (header->num_bytes_per_row + sizeof(u16)), header->num_bytes_per_row + sizeof(u16));
+						expect(sub_row_data.length == header->num_bytes_per_row + sizeof(u16));
+
+						auto sub_row_index = Type_View<u16>(sub_row_data);
+						expect(sub_row_index);
+						bswap(*sub_row_index);
+
+						row[1].type = Column_Type_U16;
+						row[1].U16 = *sub_row_index;
+
+						sub_row_data = Byte_View(sub_row_data, sizeof(u16));
+
+						for(int k = 0; k < column_infos.count; k++)
+							row[k + 2] = read_column(sub_row_data, column_infos[k]);
+
+						rows_filled++;
+					}
+				} else {
+					expect(false);
+				}
+			}
+		}
+
+		expect(rows_filled == result.localised_tables[language].num_rows);
+	}
+
+	result.num_dimensions = header->num_dimensions;
+	return true;
+}
 
 int main(int argc, char **argv) {
 	if (argc != 3)
@@ -891,15 +1449,23 @@ int main(int argc, char **argv) {
 
 	File root_exl;
 	expect(get_file("exd/root.exl", &root_exl));
+	auto data_files = parse_root_exl(&root_exl);
 
-	File Item_exh;
-	expect(get_file("exd/item.exh", &Item_exh));
+	//auto t1 = parse_ex_file("Item");
 
-	File Item_exd;
-	expect(get_file("exd/item_0.exd", &Item_exd));
+	#if 0
+	for (auto data_file : data_files) {
+		Data_Table table = {};
+		auto test = parse_ex_file(data_file.name, table);
+		table.free();
+		int k = 0;
+	}
+	#endif
 
-	//File test;
-	//get_file("ui/icon/001000/001501_hr1.tex", &test);
+	Data_Table items_table = {};
+	expect(parse_ex_file("Item", items_table));
+	defer{ items_table.free(); };
+
 
 
 	int k = 0;
@@ -940,8 +1506,7 @@ int main(int argc, char **argv) {
 			loaded_texture.height = height;
 			loaded_texture.format = DXGI_FORMAT_R8G8B8A8_UNORM;
 			loaded_texture.num_mip_levels = 1;
-			loaded_texture.data.data = (char *)data;
-			loaded_texture.data.length = width * height * 4;
+			loaded_texture.data = Byte_View((u8 *)data, width * height * 4);
 			loaded_texture.gpu_texture = texture;
 
 			auto index = loaded_textures.count;
@@ -1307,33 +1872,7 @@ int main(int argc, char **argv) {
 		write(compressed_data_code_file, "#endif\n");
 	}
 
-
 	report_total_compression();
-
-	#if 0
-
-	File result = {};
-	auto test = get_file(Expansion_ARR, Pack_Type_UI, "ui/icon/001000/001501_hr1.tex"_crc32, &result);
-	printf("found: %s\n", test ? "true" : "false");
-
-	auto text = get_file_as_texture(&result);
-	expect(text);
-
-	copy_texture_to_atlas(text, 0, 0);
-
-
-	copy_atlas_to_cpu_memory();
-
-
-	#if DEBUG_WRITE_TEXTURES_TO_BUILD
-	stbi_write_png("../build/CA_Texture.png", ATLAS_DIMENSION, ATLAS_DIMENSION, 4, atlas_image, 0);
-	#endif
-
-
-	#endif
-	//__builtin_dump_struct(&result, &printf);
-
-
 
 	return 0;
 }

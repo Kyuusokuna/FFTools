@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?> 
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+	<Type Name="Data_Cell">
+		<DisplayString Condition="type == 0">(String) {STRING}</DisplayString>
+		<DisplayString Condition="type == 1">(BOOL) {BOOL}</DisplayString>
+		
+		<DisplayString Condition="type == 2">(S8) {S8}</DisplayString>
+		<DisplayString Condition="type == 3">(U8) {U8}</DisplayString>
+		
+		<DisplayString Condition="type == 4">(S16) {S16}</DisplayString>
+		<DisplayString Condition="type == 5">(U16) {U16}</DisplayString>
+		
+		<DisplayString Condition="type == 6">(S32) {S32}</DisplayString>
+		<DisplayString Condition="type == 7">(U32) {U32}</DisplayString>
+		
+		<DisplayString Condition="type == 9">(F32) {F32}</DisplayString>
+		<DisplayString Condition="type == 11">(UNKNOWN11) {UNKNOWN11}</DisplayString>
+
+		<DisplayString Condition="type == 25">(BIT0) {BIT_FIELD}</DisplayString>
+		<DisplayString Condition="type == 26">(BIT1) {BIT_FIELD}</DisplayString>
+		<DisplayString Condition="type == 27">(BIT2) {BIT_FIELD}</DisplayString>
+		<DisplayString Condition="type == 28">(BIT3) {BIT_FIELD}</DisplayString>
+		<DisplayString Condition="type == 29">(BIT4) {BIT_FIELD}</DisplayString>
+		<DisplayString Condition="type == 30">(BIT5) {BIT_FIELD}</DisplayString>
+		<DisplayString Condition="type == 31">(BIT6) {BIT_FIELD}</DisplayString>
+		<DisplayString Condition="type == 32">(BIT7) {BIT_FIELD}</DisplayString>
+		
+			
+		<Expand HideRawView="true">
+			<Item Name="type">type</Item>
+			<Item Name="STRING" Condition="type == 0">STRING</Item>
+			<Item Name="BOOL" Condition="type == 1">STRING</Item>
+			<Item Name="S8" Condition="type == 2">STRING</Item>
+			<Item Name="U8" Condition="type == 3">STRING</Item>
+			<Item Name="S16" Condition="type == 4">STRING</Item>
+			<Item Name="U16" Condition="type == 5">STRING</Item>
+			<Item Name="S32" Condition="type == 6">STRING</Item>
+			<Item Name="U32" Condition="type == 7">STRING</Item>
+			<Item Name="F32" Condition="type == 9">STRING</Item>
+			<Item Name="UNKNOWN11" Condition="type == 11">STRING</Item>
+			<Item Name="BIT_FIELD" Condition="25 &lt;= type &amp;&amp; type &lt;= 32">STRING</Item>
+		</Expand>
+	</Type>
+
+	<Type Name="Static_Array&lt;*&gt;">
+		<DisplayString>{"$T1",s8b}[{count}]</DisplayString>
+	</Type>
+	
+	<Type Name="Static_Array2D&lt;*&gt;">
+		<DisplayString>{"$T1",s8b} [rows: {num_rows}][columns: {num_elements_per_row}]</DisplayString>
+	
+		<Expand HideRawView="true">
+			<ArrayItems>
+				<Direction>Forward</Direction>
+				<Rank>2</Rank>
+				<Size Condition="$i == 0">num_rows</Size>
+				<Size Condition="$i == 1">num_elements_per_row</Size>
+				<ValuePointer>data</ValuePointer>
+			</ArrayItems>
+		</Expand>
+	</Type>
+</AutoVisualizer>

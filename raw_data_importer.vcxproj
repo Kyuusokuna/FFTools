@@ -166,9 +166,11 @@
     <ClInclude Include="src\defer.h" />
     <ClInclude Include="src\string.h" />
     <ClInclude Include="src\types.h" />
+    <ClInclude Include="src\Views.h" />
   </ItemGroup>
   <ItemGroup>
     <Natvis Include="src\Array.natvis" />
+    <Natvis Include="src\NatvisFile.natvis" />
     <Natvis Include="src\string.natvis" />
   </ItemGroup>
   <ItemGroup>

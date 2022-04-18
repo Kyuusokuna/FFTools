@@ -320,6 +320,7 @@
   <ItemGroup>
     <ClCompile Include="generated_src\CA_Texture.cpp" />
     <ClCompile Include="generated_src\compressed_data.cpp" />
+    <ClCompile Include="generated_src\Experience.cpp" />
     <ClCompile Include="generated_src\Items.cpp" />
     <ClCompile Include="generated_src\Recipes.c" />
     <ClCompile Include="src\crafting_simulator.cpp" />
@@ -344,6 +345,7 @@
   <ItemGroup>
     <ClInclude Include="generated_src\CA_Texture.h" />
     <ClInclude Include="generated_src\compressed_data.h" />
+    <ClInclude Include="generated_src\Experience.h" />
     <ClInclude Include="generated_src\Items.h" />
     <ClInclude Include="generated_src\Recipes.h" />
     <ClInclude Include="src\crafting_simulator.h" />

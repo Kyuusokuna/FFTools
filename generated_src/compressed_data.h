@@ -2,6 +2,7 @@
 #include "Items.h"
 #include "Recipes.h"
 #include "CA_Texture.h"
+#include "Experience.h"
 
 #ifdef __cplusplus
 extern "C" {

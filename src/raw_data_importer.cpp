@@ -1519,6 +1519,31 @@ bool parse_ex_file(const ROString name, Data_Table &result) {
 	return true;
 }
 
+// EXD:
+//   - ParamGrow
+//   - 
+//   - GatheringItem
+//   - GatheringPoint
+//   - GatheringPointName
+//   - GatheringPointTransient
+//   - Gathering*
+//   -
+//   - GilShop
+//   - GilShopInfo
+//   - GilShopItem
+//   -
+//   - InclusionShop
+//   - InclusionShopCategory
+//   -
+//   - Map
+//   - MapMarker
+//   - MapMarkerRegion
+//   - MapSymbol
+//   -
+//   - SpecialShop
+//   - SpecialShopItemCategory
+//   -
+
 int main(int argc, char **argv) {
 	if (argc != 3)
 		error_exit(1);
@@ -1555,6 +1580,45 @@ int main(int argc, char **argv) {
 		int k = 0;
 	}
 	#endif
+
+	#define get_data_table_generic(table_name, var_name) Data_Table var_name##s = {}; expect(parse_ex_file(table_name, var_name##s)); expect(var_name##s .localised_tables[Language_Generic].num_rows); defer{ experience_tables.free(); }; auto var_name = var_name##s .localised_tables[Language_Generic];
+
+
+	// Experience
+	{
+		get_data_table_generic("ParamGrow", experience_table);
+
+		Array<s32> exp_to_next_level = {};
+		exp_to_next_level.ensure_capacity(experience_table.num_rows);
+
+		for (auto row : experience_table)
+			exp_to_next_level.add(row[2].S32);
+
+		require_out_file(experience_header_file, out_dir + "/Experience.h");
+		require_out_file(experience_code_file, out_dir + "/Experience.cpp");
+
+		write(experience_header_file, "#pragma once\n");
+		write(experience_header_file, "#include <stdint.h>\n");
+		write(experience_header_file, "\n");
+		write(experience_header_file, "%s", cpp_guard_header);
+		write(experience_header_file, "\n");
+		write(experience_header_file, "#define NUM_EXPERIENCE_LEVELS (%llu)\n", exp_to_next_level.count);
+		write(experience_header_file, "\n");
+		write(experience_header_file, "extern const int32_t Experience_needed_to_next_level[NUM_EXPERIENCE_LEVELS];\n");
+		write(experience_header_file, "\n");
+		write(experience_header_file, "%s", cpp_guard_footer);
+
+		write(experience_code_file, "#include \"Experience.h\"\n");
+		write(experience_code_file, "\n");
+		write(experience_code_file, "%s", cpp_guard_header);
+		write(experience_code_file, "\n");
+		write(experience_code_file, "const int32_t Experience_needed_to_next_level[NUM_EXPERIENCE_LEVELS] {\n");
+		for (int i = 0; i < exp_to_next_level.count; i++)
+			write(experience_code_file, "    %d, // %d\n", exp_to_next_level[i], i);
+		write(experience_code_file, "};\n");
+		write(experience_code_file, "\n");
+		write(experience_code_file, "%s", cpp_guard_footer);
+	}
 
 	// Items
 	{
@@ -2365,6 +2429,7 @@ int main(int argc, char **argv) {
 		write(compressed_data_header_file, "#include \"Items.h\"\n");
 		write(compressed_data_header_file, "#include \"Recipes.h\"\n");
 		write(compressed_data_header_file, "#include \"CA_Texture.h\"\n");
+		write(compressed_data_header_file, "#include \"Experience.h\"\n");
 		write(compressed_data_header_file, "\n");
 		write(compressed_data_header_file, "#ifdef __cplusplus\n");
 		write(compressed_data_header_file, "extern \"C\" {\n");

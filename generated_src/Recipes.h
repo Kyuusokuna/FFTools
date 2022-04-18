@@ -8,7 +8,7 @@ extern "C" {
 #endif
 
 extern const uint16_t NUM_RECIPES[NUM_JOBS];
-#define MAX_NUM_RECIPES (1674)
+#define MAX_NUM_RECIPES (1690)
 
 typedef struct {
     Item result;

@@ -337,9 +337,9 @@ int main(int argc, char **argv) {
 	CSVRow type_row;
 
 	require_file(item_csv_file, root_path + "/rawexd/Item.csv");
-	require_file(recipe_level_table_csv_file, root_path + "/rawexd/Item.csv");
-	require_file(recipe_csv_file, root_path + "/rawexd/Item.csv");
-	require_file(recipe_lookup_csv_file, root_path + "/rawexd/Item.csv");
+	require_file(recipe_level_table_csv_file, root_path + "/rawexd/RecipeLevelTable.csv");
+	require_file(recipe_csv_file, root_path + "/rawexd/Recipe.csv");
+	require_file(recipe_lookup_csv_file, root_path + "/rawexd/RecipeLookup.csv");
 
 	CSVReader item_csv(root_path + "/rawexd/Item.csv", format);
 	CSVReader recipe_level_table_csv(root_path + "/rawexd/RecipeLevelTable.csv", format);

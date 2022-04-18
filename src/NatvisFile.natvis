@@ -43,20 +43,35 @@
 	</Type>
 
 	<Type Name="Static_Array&lt;*&gt;">
-		<DisplayString>{"$T1",s8b}[{count}]</DisplayString>
+		<DisplayString>[{count}] {"$T1",s8b}</DisplayString>
+	
+	<Expand HideRawView="true">
+		<ArrayItems>
+			<Direction>Forward</Direction>
+			<Rank>1</Rank>
+			<Size>count</Size>
+			<ValuePointer>data</ValuePointer>
+		</ArrayItems>
+	</Expand>
 	</Type>
 	
 	<Type Name="Static_Array2D&lt;*&gt;">
 		<DisplayString>{"$T1",s8b} [rows: {num_rows}][columns: {num_elements_per_row}]</DisplayString>
 	
 		<Expand HideRawView="true">
-			<ArrayItems>
-				<Direction>Forward</Direction>
-				<Rank>2</Rank>
-				<Size Condition="$i == 0">num_rows</Size>
-				<Size Condition="$i == 1">num_elements_per_row</Size>
-				<ValuePointer>data</ValuePointer>
-			</ArrayItems>
+			<CustomListItems Condition="num_rows > 0" MaxItemsPerView="50000">
+				<Variable Name="i" InitialValue="0"/>
+				<Size>num_rows</Size>
+				
+				<Skip Value="num_rows_to_skip">
+					<Exec>i += num_rows_to_skip</Exec>
+				</Skip>
+				
+				<Loop>
+					<Item>&amp;data[i * num_elements_per_row],[num_elements_per_row]na</Item>
+					<Exec>i++</Exec>
+				</Loop>
+			</CustomListItems>
 		</Expand>
 	</Type>
 </AutoVisualizer>

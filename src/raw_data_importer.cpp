@@ -1168,7 +1168,7 @@ struct [[gnu::packed]] Column_Info {
 	u16 byte_offset_in_row;
 };
 
-Data_Cell read_column(Byte_View row, Column_Info column_info) {
+Data_Cell read_column(Byte_View row, Column_Info column_info, Byte_View string_data) {
 	auto cell_data = Byte_View(row, column_info.byte_offset_in_row, Column_Type_to_num_bytes[column_info.type]);
 	expect(cell_data.length == Column_Type_to_num_bytes[column_info.type]);
 
@@ -1176,7 +1176,6 @@ Data_Cell read_column(Byte_View row, Column_Info column_info) {
 	cell.type = column_info.type;
 
 	switch (column_info.type) {
-		case Column_Type_STRING: break;
 		case Column_Type_BOOL: cell.BOOL = !!*(u8 *)cell_data.data; break;
 
 		case Column_Type_S8: cell.S8 = *(s8 *)cell_data.data; break;
@@ -1197,6 +1196,25 @@ Data_Cell read_column(Byte_View row, Column_Info column_info) {
 		case Column_Type_BIT6: case Column_Type_BIT7:
 			cell.BIT_FIELD = *(u8 *)cell_data.data; break;
 
+
+		case Column_Type_STRING: {
+			auto offset_in_string_data = *(u32 *)cell_data.data;
+			bswap(offset_in_string_data);
+
+			string_data = Byte_View(string_data, offset_in_string_data);
+			expect(string_data.length);
+
+			u32 length = strnlen((char *)string_data.data, string_data.length);
+
+			string_data = Byte_View(string_data, 0, length);
+			expect(string_data.length == length);
+
+			cell.STRING.data = (char *)string_data.data;
+			cell.STRING.length = length;
+
+			cell.STRING = copy(cell.STRING);
+		} break;
+
 		default:
 			expect(false); break;
 	}
@@ -1207,6 +1225,7 @@ Data_Cell read_column(Byte_View row, Column_Info column_info) {
 
 struct Data_Table {
 	u16 num_dimensions;
+	Static_Array<Column_Type> column_types;
 	Static_Array2D<Data_Cell> localised_tables[NUM_LANGUAGES];
 
 	void free() {
@@ -1359,7 +1378,27 @@ bool parse_ex_file(const ROString name, Data_Table &result) {
 				auto row_data = Byte_View(data, row_info.offset_in_file);
 				expect(row_data.length >= header->num_bytes_per_row);
 
+				struct [[gnu::packed]] Row_Header {
+					u32 num_bytes_in_row;
+					u16 num_sub_rows; // always 1
+				};
+
+				auto row_header = Type_View<Row_Header>(row_data);
+				expect(row_header);
+
+				bswap(row_header->num_bytes_in_row);
+				bswap(row_header->num_sub_rows);
+
+				row_data = Byte_View(row_data, sizeof(Row_Header), row_header->num_bytes_in_row);
+				expect(row_data.length == row_header->num_bytes_in_row);
+				expect(row_data.length >= header->num_bytes_per_row);
+
 				if (header->num_dimensions == 1) {
+					expect(row_header->num_sub_rows == 1);
+
+					auto string_data = Byte_View(row_data, header->num_bytes_per_row);
+					row_data = Byte_View(row_data, 0, header->num_bytes_per_row);
+
 					auto row = result.localised_tables[language][rows_filled];
 
 					row[0].type = Column_Type_U32;
@@ -1369,31 +1408,14 @@ bool parse_ex_file(const ROString name, Data_Table &result) {
 					row[1].U16 = 0;
 
 					for(int k = 0; k < column_infos.count; k++)
-						row[k + 2] = read_column(row_data, column_infos[k]);
+						row[k + 2] = read_column(row_data, column_infos[k], string_data);
 
 					rows_filled++;
 				} else if (header->num_dimensions == 2) {
-					struct [[gnu::packed]] Sub_Row_Info {
-						u32 num_bytes_of_all_sub_rows;
-						u16 num_sub_rows;
-					};
+					expect(row_header->num_sub_rows * (header->num_bytes_per_row + sizeof(u16)) <= row_data.length);
 
-					auto sub_row_info = Type_View<Sub_Row_Info>(row_data);
-					expect(sub_row_info);
-
-					bswap(sub_row_info->num_bytes_of_all_sub_rows);
-					bswap(sub_row_info->num_sub_rows);
-
-					row_data = Byte_View(row_data, sizeof(Sub_Row_Info), sub_row_info->num_bytes_of_all_sub_rows);
-					expect(row_data.length == sub_row_info->num_bytes_of_all_sub_rows);
-
-					expect(sub_row_info->num_sub_rows * (header->num_bytes_per_row + sizeof(u16)) <= row_data.length);
-
-					for (int j = 0; j < sub_row_info->num_sub_rows; j++) {
+					for (int j = 0; j < row_header->num_sub_rows; j++) {
 						auto row = result.localised_tables[language][rows_filled];
-
-						row[0].type = Column_Type_U32;
-						row[0].U32 = row_info.row_index;
 
 						auto sub_row_data = Byte_View(row_data, j * (header->num_bytes_per_row + sizeof(u16)), header->num_bytes_per_row + sizeof(u16));
 						expect(sub_row_data.length == header->num_bytes_per_row + sizeof(u16));
@@ -1402,13 +1424,18 @@ bool parse_ex_file(const ROString name, Data_Table &result) {
 						expect(sub_row_index);
 						bswap(*sub_row_index);
 
+						row[0].type = Column_Type_U32;
+						row[0].U32 = row_info.row_index;
+
 						row[1].type = Column_Type_U16;
 						row[1].U16 = *sub_row_index;
 
 						sub_row_data = Byte_View(sub_row_data, sizeof(u16));
 
-						for(int k = 0; k < column_infos.count; k++)
-							row[k + 2] = read_column(sub_row_data, column_infos[k]);
+						for (int k = 0; k < column_infos.count; k++) {
+							expect(column_infos[k].type != Column_Type_STRING);
+							row[k + 2] = read_column(sub_row_data, column_infos[k], Byte_View(0, 0));
+						}
 
 						rows_filled++;
 					}
@@ -1422,6 +1449,14 @@ bool parse_ex_file(const ROString name, Data_Table &result) {
 	}
 
 	result.num_dimensions = header->num_dimensions;
+
+	result.column_types = Static_Array<Column_Type>(column_infos.count + 2);
+	result.column_types[0] = Column_Type_U32;
+	result.column_types[1] = Column_Type_U16;
+	for (int i = 0; i < column_infos.count; i++)
+		result.column_types[i + 2] = column_infos[i].type;
+
+
 	return true;
 }
 
@@ -1453,7 +1488,7 @@ int main(int argc, char **argv) {
 
 	//auto t1 = parse_ex_file("Item");
 
-	#if 0
+	#if 1
 	for (auto data_file : data_files) {
 		Data_Table table = {};
 		auto test = parse_ex_file(data_file.name, table);
@@ -1462,13 +1497,20 @@ int main(int argc, char **argv) {
 	}
 	#endif
 
-	Data_Table items_table = {};
-	expect(parse_ex_file("Item", items_table));
-	defer{ items_table.free(); };
+	// Items
+	{
+		Data_Table items_table = {};
+		expect(parse_ex_file("Item", items_table));
+		defer{ items_table.free(); };
+
+		
 
 
 
-	int k = 0;
+
+		int k = 0;
+	}
+
 	
 	// CA_Texture
 	{

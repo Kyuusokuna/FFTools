@@ -975,34 +975,76 @@ Array<Root_Info> parse_root_exl(File *file) {
 	return result;
 }
 
-bool parse_exd_file(File *file) {
-	auto data = decompress_general_file(file);
-
-	struct EXDF_Header {
-		u32 magic;
-		u16 unknown0_0;
-		u16 unknown0_1;
-		u16 unknown1_0;
-		u16 unknown1_1;
-		u16 unknown2_0;
-		u16 unknown2_1;
-		u16 unknown3_0;
-		u16 unknown3_1;
-		u16 unknown4_0;
-		u16 unknown4_1;
-		u32 unknown5;
-		u32 unknown6;
+#define CONCATENATOR_BLOCK_SIZE 65536
+struct Concatenator {
+	struct Concatenator_Block {
+		u64 used_length;
+		u64 total_length;
+		void *data;
 	};
+	Array<Concatenator_Block> blocks;
 
-	auto header = Type_View<EXDF_Header>(data);
-	expect(header);
-	expect(header->magic == 0x46445845)
+	void internal_add_block(u64 min_size) {
+		u64 size = min_size < CONCATENATOR_BLOCK_SIZE ? CONCATENATOR_BLOCK_SIZE : min_size;
 
+		auto &new_block = blocks.add({});
+		new_block.used_length = 0;
+		new_block.total_length = size;
+		new_block.data = malloc(size);
+	}
 
-	int k = 0;
+	void internal_ensure_space(u64 space) {
+		auto current_block = blocks.last();
+		if (!current_block) {
+			internal_add_block(space);
+			return;
+		}
 
-	return true;
-}
+		if (current_block->total_length - current_block->used_length < space) {
+			internal_add_block(space);
+			return;
+		}
+	}
+
+	void add(ROString to_add) {
+		internal_ensure_space(to_add.length);
+
+		auto current_block = blocks.last();
+		void *current_ptr = ((char *)current_block->data) + current_block->used_length;
+
+		memcpy(current_ptr, to_add.data, to_add.length);
+		current_block->used_length += to_add.length;
+	}
+
+	template<typename T>
+	void add(T *to_add) {
+		add(String{ (u64)sizeof(*to_add), (char *)to_add });
+	}
+
+	String pack() {
+		u64 total_length = 0;
+		for (auto &block : blocks)
+			total_length += block.used_length;
+
+		String result = {};
+		result.length = total_length;
+		result.data = (char *)calloc(1, total_length);
+
+		char *ptr = result.data;
+		for (auto &block : blocks) {
+			memcpy(ptr, block.data, block.used_length);
+			ptr += block.used_length;
+		}
+
+		return result;
+	}
+
+	void free() {
+		for (auto &block : blocks)
+			::free(block.data);
+		blocks.reset();
+	}
+};
 
 template<typename T>
 void bswap(T &x) {
@@ -1137,6 +1179,23 @@ struct Static_Array2D {
 			num_rows = 0;
 		}
 	}
+
+	struct Iterator {
+		Static_Array2D *static_array;
+		u64 row_index;
+
+		Iterator(Static_Array2D *static_array, u64 row_index) {
+			this->static_array = static_array;
+			this->row_index = row_index;
+		}
+
+		Array_View<T> operator*() { return (*static_array)[row_index]; }
+		Iterator &operator++() { row_index++; return *this; }
+		friend bool operator!=(const Iterator &a, const Iterator &b) { return a.row_index != b.row_index; }
+	};
+
+	Iterator begin() { return Iterator(this, 0); }
+	Iterator end() { return Iterator(this, num_rows); }
 };
 
 struct Data_Cell {
@@ -1488,7 +1547,7 @@ int main(int argc, char **argv) {
 
 	//auto t1 = parse_ex_file("Item");
 
-	#if 1
+	#if 0
 	for (auto data_file : data_files) {
 		Data_Table table = {};
 		auto test = parse_ex_file(data_file.name, table);
@@ -1503,12 +1562,440 @@ int main(int argc, char **argv) {
 		expect(parse_ex_file("Item", items_table));
 		defer{ items_table.free(); };
 
-		
+		expect(items_table.column_types[11] == Column_Type_STRING);
 
+		char null_terminator = '\0';
+		Concatenator item_to_name_DATA = {};
+		Concatenator item_to_name_STR_DATA = {};
+		defer{ item_to_name_DATA.free(); };
+		defer{ item_to_name_STR_DATA.free(); };
 
+		item_to_name_STR_DATA.add(&null_terminator);
+		u64 curr_str_offset = 1;
 
+		for(auto item : items_table.localised_tables[Language_English]) {
+			auto item_name = item[11].STRING;
+
+			if (item_name.length) {
+				item_to_name_STR_DATA.add(item_name);
+				item_to_name_STR_DATA.add(&null_terminator);
+
+				String placeholder_string = { item_name.length, (char *)curr_str_offset };
+				item_to_name_DATA.add(&placeholder_string);
+
+				curr_str_offset += item_name.length + 1;
+			} else {
+				String placeholder_string = { 0, (char *)0 };
+				item_to_name_DATA.add(&placeholder_string);
+			}
+		}
+
+		String item_to_name_DATA_compressed;
+		String item_to_name_STR_DATA_compressed;
+
+		String item_to_name_DATA_buffer = item_to_name_DATA.pack();
+		String item_to_name_STR_DATA_buffer = item_to_name_STR_DATA.pack();
+		defer{ free(item_to_name_DATA_buffer.data); };
+		defer{ free(item_to_name_STR_DATA_buffer.data); };
+
+		size_t compressed_length = 0;
+		item_to_name_DATA_compressed.data = (char *)tdefl_compress_mem_to_heap(item_to_name_DATA_buffer.data, item_to_name_DATA_buffer.length, &compressed_length, TDEFL_MAX_PROBES_MASK);
+		item_to_name_DATA_compressed.length = compressed_length;
+
+		item_to_name_STR_DATA_compressed.data = (char *)tdefl_compress_mem_to_heap(item_to_name_STR_DATA_buffer.data, item_to_name_STR_DATA_buffer.length, &compressed_length, TDEFL_MAX_PROBES_MASK);
+		item_to_name_STR_DATA_compressed.length = compressed_length;
+
+		defer{ mz_free(item_to_name_DATA_compressed.data); };
+		defer{ mz_free(item_to_name_STR_DATA_compressed.data); };
+
+		require_out_file(items_header_file, out_dir + "/Items.h");
+		require_out_file(items_code_file, out_dir + "/Items.cpp");
+
+		write(items_header_file, "#pragma once\n");
+		write(items_header_file, "#include <stdint.h>\n");
+		write(items_header_file, "#include \"../src/string.h\"\n");
+		write(items_header_file, "\n");
+		write(items_header_file, "%s", cpp_guard_header);
+		write(items_header_file, "\n");
+		write(items_header_file, "#define NUM_ITEMS (%llu)\n", items_table.localised_tables[Language_English].num_rows);
+		write(items_header_file, "\n");
+		write(items_header_file, "typedef uint16_t Item;\n");
+		write(items_header_file, "extern ROString_Literal Item_to_name[NUM_ITEMS];\n");
+		write(items_header_file, "\n");
+		write(items_header_file, "extern bool Items_decompress();\n");
+		write(items_header_file, "\n");
+		write(items_header_file, "%s", cpp_guard_footer);
+
+		write(items_code_file, "#include \"Items.h\"\n");
+		write(items_code_file, "#include <miniz/miniz.h>\n");
+		write(items_code_file, "\n");
+		write(items_code_file, "%s", cpp_guard_header);
+		write(items_code_file, "\n");
+		write(items_code_file, "ROString_Literal Item_to_name[NUM_ITEMS];\n");
+		write(items_code_file, "\n");
+		write(items_code_file, "char item_to_name_STR_DATA[%lld];\n", item_to_name_STR_DATA_buffer.length);
+		write(items_code_file, "\n");
+		write(items_code_file, "const uint8_t item_to_name_STR_DATA_compressed[] {");
+		for (int i = 0; i < item_to_name_STR_DATA_compressed.length; i++) {
+			if (i % 20 == 0)
+				write(items_code_file, "\n    ");
+			write(items_code_file, "0x%02hhx, ", item_to_name_STR_DATA_compressed[i]);
+		}
+		write(items_code_file, "\n");
+		write(items_code_file, "};\n");
+		write(items_code_file, "\n");
+		write(items_code_file, "const uint8_t Item_to_name_compressed[] {");
+		for (int i = 0; i < item_to_name_DATA_compressed.length; i++) {
+			if (i % 20 == 0)
+				write(items_code_file, "\n    ");
+			write(items_code_file, "0x%02hhx, ", item_to_name_DATA_compressed[i]);
+		}
+		write(items_code_file, "\n");
+		write(items_code_file, "};\n");
+		write(items_code_file, "\n");
+		write(items_code_file, "\n");
+		write(items_code_file, "bool Items_decompress() {\n");
+		write(items_code_file, "    if (tinfl_decompress_mem_to_mem(item_to_name_STR_DATA, sizeof(item_to_name_STR_DATA), item_to_name_STR_DATA_compressed, sizeof(item_to_name_STR_DATA_compressed), TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF) == TINFL_DECOMPRESS_MEM_TO_MEM_FAILED)\n");
+		write(items_code_file, "        return false;\n");
+		write(items_code_file, "    \n");
+		write(items_code_file, "    if (tinfl_decompress_mem_to_mem(Item_to_name, sizeof(Item_to_name), Item_to_name_compressed, sizeof(Item_to_name_compressed), TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF) == TINFL_DECOMPRESS_MEM_TO_MEM_FAILED)\n");
+		write(items_code_file, "        return false;\n");
+		write(items_code_file, "    \n");
+		write(items_code_file, "    for(auto &item : Item_to_name) {\n");
+		write(items_code_file, "		uint64_t *data_ptr = (uint64_t *)&item.data;\n");
+		write(items_code_file, "        *data_ptr += (uint64_t)item_to_name_STR_DATA;\n");
+		write(items_code_file, "    }\n");
+		write(items_code_file, "    \n");
+		write(items_code_file, "    return true;\n");
+		write(items_code_file, "}\n");
+		write(items_code_file, "\n");
+		write(items_code_file, "%s", cpp_guard_footer);
+
+		report_compression("Items", item_to_name_DATA_buffer.length + item_to_name_STR_DATA_buffer.length, item_to_name_DATA_compressed.length + item_to_name_STR_DATA_compressed.length);
+	}
+
+	// Recipes
+	{
+		struct Recipe {
+			s32 id;
+			u16 level_table_index;
+
+			s32 Result;
+			s32 Ingredient0;
+			s32 Ingredient1;
+			s32 Ingredient2;
+			s32 Ingredient3;
+			s32 Ingredient4;
+			s32 Ingredient5;
+			s32 Ingredient6;
+			s32 Ingredient7;
+			s32 Ingredient8;
+			s32 Ingredient9;
+
+			u16 MaterialQualityFactor;
+			u16 DifficultyFactor;
+			u16 QualityFactor;
+			u16 DurabilityFactor;
+			u16 RequiredCraftsmanship;
+			u16 RequiredControl;
+		};
+
+		struct Recipe_Level_Table {
+			s32 id;
+
+			u8 ClassJobLevel;
+			u8 Stars;
+			u16 SuggestedCraftsmanship;
+			u16 SuggestedControl;
+			u32 Difficulty;
+			u32 Quality;
+			u8 ProgressDivider;
+			u8 QualityDivider;
+			u8 ProgressModifier;
+			u8 QualityModifier;
+			u16 Durability;
+		};
+
+		struct Recipe_Lookup {
+			s32 id;
+
+			u16 CRP;
+			u16 BSM;
+			u16 ARM;
+			u16 GSM;
+			u16 LTW;
+			u16 WVR;
+			u16 ALC;
+			u16 CUL;
+		};
+
+		Array<Recipe> recipes;
+		Array<Recipe_Level_Table> recipe_level_tables;
+		Array<Recipe_Lookup> recipe_lookups;
+		defer{ recipes.reset(); };
+		defer{ recipe_level_tables.reset(); };
+		defer{ recipe_lookups.reset(); };
+
+		Data_Table recipe_tables = {};
+		expect(parse_ex_file("Recipe", recipe_tables));
+		defer{ recipe_tables.free(); };
+
+		Data_Table recipe_level_table_tables = {};
+		expect(parse_ex_file("RecipeLevelTable", recipe_level_table_tables));
+		defer{ recipe_level_table_tables.free(); };
+
+		Data_Table recipe_lookup_tables = {};
+		expect(parse_ex_file("RecipeLookup", recipe_lookup_tables));
+		defer{ recipe_lookup_tables.free(); };
+
+		expect(recipe_tables.localised_tables[Language_Generic].num_rows);
+		expect(recipe_level_table_tables.localised_tables[Language_Generic].num_rows);
+		expect(recipe_lookup_tables.localised_tables[Language_Generic].num_rows);
+
+		auto recipe_table = recipe_tables.localised_tables[Language_Generic];
+		auto recipe_level_table_table = recipe_level_table_tables.localised_tables[Language_Generic];
+		auto recipe_lookup_table = recipe_lookup_tables.localised_tables[Language_Generic];
+
+		recipes.ensure_capacity(recipe_table.num_rows);
+		recipe_level_tables.ensure_capacity(recipe_level_table_table.num_rows);
+		recipe_lookups.ensure_capacity(recipe_lookup_table.num_rows);
+
+		for (auto row : recipe_table) {
+			Recipe &recipe = recipes.add({});
+			recipe.id = row[0].U32;
+			recipe.level_table_index = row[4].U16;
+			recipe.Result = row[5].S32;
+			recipe.Ingredient0 = row[7].S32;
+			recipe.Ingredient1 = row[9].S32;
+			recipe.Ingredient2 = row[11].S32;
+			recipe.Ingredient3 = row[13].S32;
+			recipe.Ingredient4 = row[15].S32;
+			recipe.Ingredient5 = row[17].S32;
+			recipe.Ingredient6 = row[19].S32;
+			recipe.Ingredient7 = row[21].S32;
+			recipe.Ingredient8 = row[23].S32;
+			recipe.Ingredient9 = row[25].S32;
+
+			recipe.MaterialQualityFactor = row[29].U8;
+			recipe.DifficultyFactor = row[30].U16;
+			recipe.QualityFactor = row[31].U16;
+			recipe.DurabilityFactor = row[32].U16;
+			recipe.RequiredCraftsmanship = row[34].U16;
+			recipe.RequiredControl = row[35].U16;
+		}
+
+		for (auto row : recipe_level_table_table) {
+			Recipe_Level_Table &level_table = recipe_level_tables.add({});
+			level_table.id = row[0].U32;
+			level_table.ClassJobLevel = row[2].U8;
+			level_table.Stars = row[3].U8;
+			level_table.SuggestedCraftsmanship = row[4].U16;
+			level_table.SuggestedControl = row[5].U16;
+			level_table.Difficulty = row[6].U16;
+			level_table.Quality = row[7].U32;
+			level_table.ProgressDivider = row[8].U8;
+			level_table.QualityDivider = row[9].U8;
+			level_table.ProgressModifier = row[10].U8;
+			level_table.QualityModifier = row[11].U8;
+			level_table.Durability = row[12].U16;
+		}
+
+		for (auto row : recipe_lookup_table) {
+			Recipe_Lookup &lookup = recipe_lookups.add({});
+			lookup.id = row[0].U32;
+			lookup.CRP = row[2].U16;
+			lookup.BSM = row[3].U16;
+			lookup.ARM = row[4].U16;
+			lookup.GSM = row[5].U16;
+			lookup.LTW = row[6].U16;
+			lookup.WVR = row[7].U16;
+			lookup.ALC = row[8].U16;
+			lookup.CUL = row[9].U16;
+		}
 
 		int k = 0;
+
+		struct Output_Recipe {
+			u16 Result;
+			u16 Ingredients[10];
+
+			s32 durability;
+			s32 progress;
+			s32 quality;
+
+			u8 progress_divider;
+			u8 progress_modifier;
+			u8 quality_divider;
+			u8 quality_modifier;
+
+			s8 level;
+		};
+
+		Array<Output_Recipe> CRP_recipes = {};
+		Array<Output_Recipe> BSM_recipes = {};
+		Array<Output_Recipe> ARM_recipes = {};
+		Array<Output_Recipe> GSM_recipes = {};
+		Array<Output_Recipe> LTW_recipes = {};
+		Array<Output_Recipe> WVR_recipes = {};
+		Array<Output_Recipe> ALC_recipes = {};
+		Array<Output_Recipe> CUL_recipes = {};
+		Array<Array<Output_Recipe> *> all_recipes = { &CRP_recipes, &BSM_recipes, &ARM_recipes, &GSM_recipes, &LTW_recipes, &WVR_recipes, &ALC_recipes, &CUL_recipes };
+
+		Concatenator Recipes_DATA = {};
+		defer{ Recipes_DATA.free(); };
+
+		auto find_recipe = [&](s32 id) -> Recipe {
+			for (auto &recipe : recipes)
+				if (recipe.id == id)
+					return recipe;
+
+			printf("failed to find recipe with id %d.\n", id);
+			error_exit(1);
+			return {};
+		};
+
+		auto find_level_table = [&](s32 id) -> Recipe_Level_Table {
+			for (auto &level_table : recipe_level_tables)
+				if (level_table.id == id)
+					return level_table;
+
+			printf("failed to find recipe_level_table with id %d.\n", id);
+			error_exit(1);
+			return {};
+		};
+
+		auto add_recipe = [&](Array<Output_Recipe> &arr, s32 id) {
+			auto &result = arr.add({});
+			auto recipe = find_recipe(id);
+			auto level_table = find_level_table(recipe.level_table_index);
+
+			result.Result = recipe.Result;
+			result.Ingredients[0] = recipe.Ingredient0;
+			result.Ingredients[1] = recipe.Ingredient1;
+			result.Ingredients[2] = recipe.Ingredient2;
+			result.Ingredients[3] = recipe.Ingredient3;
+			result.Ingredients[4] = recipe.Ingredient4;
+			result.Ingredients[5] = recipe.Ingredient5;
+			result.Ingredients[6] = recipe.Ingredient6;
+			result.Ingredients[7] = recipe.Ingredient7;
+			result.Ingredients[8] = recipe.Ingredient8;
+			result.Ingredients[9] = recipe.Ingredient9;
+
+			result.durability = level_table.Durability * recipe.DurabilityFactor / 100;
+			result.progress = level_table.Difficulty * recipe.DifficultyFactor / 100;
+			result.quality = level_table.Quality * recipe.QualityFactor / 100;
+
+			result.progress_divider = level_table.ProgressDivider;
+			result.progress_modifier = level_table.ProgressModifier;
+			result.quality_divider = level_table.QualityDivider;
+			result.quality_modifier = level_table.QualityModifier;
+
+			result.level = level_table.ClassJobLevel;
+		};
+
+		#define do_lookup(job) if(lookup.job) add_recipe(job## _recipes, lookup.job);
+		for (auto &lookup : recipe_lookups) {
+			do_lookup(CRP);
+			do_lookup(BSM);
+			do_lookup(ARM);
+			do_lookup(GSM);
+			do_lookup(LTW);
+			do_lookup(WVR);
+			do_lookup(ALC);
+			do_lookup(CUL);
+		}
+
+		u64 max_num_recipes = 0;
+		for (auto &arr : all_recipes)
+			max_num_recipes = max(max_num_recipes, arr->count);
+
+		Output_Recipe dummy_recipe = {};
+		for (auto job : all_recipes) {
+			for (int i = 0; i < max_num_recipes; i++) {
+				if (i < job->count)
+					Recipes_DATA.add(&(*job)[i]);
+				else
+					Recipes_DATA.add(&dummy_recipe);
+			}
+		}
+
+		String Recipes_DATA_buffer = Recipes_DATA.pack();
+		defer{ free(Recipes_DATA_buffer.data); };
+
+		String Recipes_DATA_compressed;
+		size_t compressed_length = 0;
+		Recipes_DATA_compressed.data = (char *)tdefl_compress_mem_to_heap(Recipes_DATA_buffer.data, Recipes_DATA_buffer.length, &compressed_length, TDEFL_MAX_PROBES_MASK);
+		Recipes_DATA_compressed.length = compressed_length;
+		defer{ mz_free(Recipes_DATA_compressed.data); };
+
+
+		require_out_file(recipes_header_file, out_dir + "/Recipes.h");
+		require_out_file(recipes_code_file, out_dir + "/Recipes.c");
+
+		write(recipes_header_file, "#pragma once\n");
+		write(recipes_header_file, "#include <stdint.h>\n");
+		write(recipes_header_file, "#include \"../src/Craft_Actions.h\"\n");
+		write(recipes_header_file, "#include \"Items.h\"\n");
+		write(recipes_header_file, "\n");
+		write(recipes_header_file, "%s", cpp_guard_header);
+		write(recipes_header_file, "\n");
+		write(recipes_header_file, "extern const uint16_t NUM_RECIPES[NUM_JOBS];\n");
+		write(recipes_header_file, "#define MAX_NUM_RECIPES (%llu)\n", max_num_recipes);
+		write(recipes_header_file, "\n");
+		write(recipes_header_file, "typedef struct {\n");
+		write(recipes_header_file, "    Item result;\n");
+		write(recipes_header_file, "    Item ingredients[10];\n");
+		write(recipes_header_file, "    \n");
+		write(recipes_header_file, "    int32_t durability;\n");
+		write(recipes_header_file, "    int32_t progress;\n");
+		write(recipes_header_file, "    int32_t quality;\n");
+		write(recipes_header_file, "    \n");
+		write(recipes_header_file, "    uint8_t progress_divider;\n");
+		write(recipes_header_file, "    uint8_t progress_modifier;\n");
+		write(recipes_header_file, "    uint8_t quality_divider;\n");
+		write(recipes_header_file, "    uint8_t quality_modifier;\n");
+		write(recipes_header_file, "    \n");
+		write(recipes_header_file, "    int8_t level;\n");
+		write(recipes_header_file, "} Recipe;\n");
+		write(recipes_header_file, "\n");
+		write(recipes_header_file, "extern Recipe Recipes[NUM_JOBS][MAX_NUM_RECIPES];\n");
+		write(recipes_header_file, "\n");
+		write(recipes_header_file, "extern bool Recipes_decompress();\n");
+		write(recipes_header_file, "\n");
+		write(recipes_header_file, "%s", cpp_guard_footer);
+
+
+		write(recipes_code_file, "#include \"Recipes.h\"\n");
+		write(recipes_code_file, "#include <miniz/miniz.h>\n");
+		write(recipes_code_file, "\n");
+		write(recipes_code_file, "%s", cpp_guard_header);
+		write(recipes_code_file, "\n");
+		write(recipes_code_file, "const uint16_t NUM_RECIPES[NUM_JOBS] = {\n");
+		for (auto &job_recipes : all_recipes)
+			write(recipes_code_file, "    %llu,\n", job_recipes->count);
+		write(recipes_code_file, "};\n");
+		write(recipes_code_file, "\n");
+		write(recipes_code_file, "Recipe Recipes[NUM_JOBS][MAX_NUM_RECIPES];\n");
+		write(recipes_code_file, "\n");
+		write(recipes_code_file, "const uint8_t Recipes_compressed[] = {");
+		for (int i = 0; i < Recipes_DATA_compressed.length; i++) {
+			if (i % 20 == 0)
+				write(recipes_code_file, "\n    ");
+			write(recipes_code_file, "0x%02hhx, ", Recipes_DATA_compressed[i]);
+		}
+		write(recipes_code_file, "\n");
+		write(recipes_code_file, "};\n");
+		write(recipes_code_file, "\n");
+		write(recipes_code_file, "bool Recipes_decompress() {\n");
+		write(recipes_code_file, "    if (tinfl_decompress_mem_to_mem(Recipes, sizeof(Recipes), Recipes_compressed, sizeof(Recipes_compressed), TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF) == TINFL_DECOMPRESS_MEM_TO_MEM_FAILED)\n");
+		write(recipes_code_file, "        return false;\n");
+		write(recipes_code_file, "    \n");
+		write(recipes_code_file, "    return true;\n");
+		write(recipes_code_file, "}\n");
+		write(recipes_code_file, "\n");
+		write(recipes_code_file, "%s", cpp_guard_footer);
+
+		report_compression("Recipes", Recipes_DATA_buffer.length, Recipes_DATA_compressed.length);
 	}
 
 	

@@ -10,6 +10,7 @@ extern "C" {
 
 typedef uint16_t Item;
 extern ROString_Literal Item_to_name[NUM_ITEMS];
+extern uint8_t Item_to_flags[NUM_ITEMS];
 
 extern bool Items_decompress();
 

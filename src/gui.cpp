@@ -975,7 +975,7 @@ bool GUI::per_frame() {
 
     global_data.button_size = ImGui::GetFrameHeight() * 2;
     global_data.input_int_width = (ImGui::GetFrameHeight() + style.ItemInnerSpacing.x) * 2 + ImGui::GetFrameHeight() * 3;
-    global_data.input_str_width = (ImGui::GetFrameHeight() + style.ItemInnerSpacing.x) * 2 + ImGui::GetFrameHeight() * 16;
+    global_data.input_str_width = (ImGui::GetFrameHeight() + style.ItemInnerSpacing.x) * 2 + ImGui::GetFrameHeight() * 19;
 
     auto &current_main_panel = global_data.current_main_panel;
 

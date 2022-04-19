@@ -42,7 +42,7 @@ ImVec4 clear_color = ImVec4(0.192f, 0.192f, 0.192f, 1.00f);
 
 int imgui_main();
 
-bool done;
+bool window_closed;
 u64 size_lparam;
 HWND hwnd;
 DWORD gui_thread;
@@ -116,9 +116,10 @@ int imgui_main() {
     #endif
 
     u64 last_size_lparam = 0;
+    bool done = false;
 
     // Main loop
-    while (!done) {
+    while (!window_closed && !done) {
         if (size_lparam != last_size_lparam) {
             last_size_lparam = size_lparam;
             CleanupRenderTarget();
@@ -280,8 +281,8 @@ LRESULT WINAPI MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             return 0;
         break;
     case WM_DESTROY:
-        ::PostQuitMessage(0);
-        done = true;
+        //::PostQuitMessage(0);
+        window_closed = true;
         return 0;
     }
     return ::DefWindowProc(hWnd, msg, wParam, lParam);

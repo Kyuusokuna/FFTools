@@ -1,4 +1,5 @@
 #pragma once
+#include <stdint.h>
 #include "../src/types.h"
 #include "../src/Craft_Jobs.h"
 #include "../src/Craft_Actions.h"

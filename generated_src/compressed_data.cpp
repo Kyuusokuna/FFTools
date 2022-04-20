@@ -1,4 +1,5 @@
 #include "compressed_data.h"
+#include <miniz/miniz.h>
 
 #ifdef __cplusplus
 extern "C" {

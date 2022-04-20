@@ -1639,17 +1639,19 @@ int main(int argc, char **argv) {
 	}
 
 	#define require_out_file(var_name, path) auto var_name = fopen((path).c_str(), "wb"); if(!(var_name)) { printf("failed to open file '%s' for writing.\n", (path).c_str()); return 1; }; defer { fclose((var_name)); };
-	#define make_generated_file(name)									\
-		require_out_file(name##_file_header, out_dir + #name ".h");		\
-		require_out_file(name##_file_code, out_dir + #name ".cpp");		\
+	#define make_generated_file(name, additional_includes)				\
+		require_out_file(name##_file_header, out_dir + "/" #name ".h");	\
+		require_out_file(name##_file_code, out_dir + "/" #name ".cpp");	\
 		write(name##_file_header, "#pragma once\n");					\
 		write(name##_file_header, "#include <stdint.h>\n");				\
+		for(auto &str : additional_includes)							\
+			write(name##_file_header, "#include %.*s\n", STR(str));		\
 		write(name##_file_header, "\n");								\
 		write(name##_file_header, "%s", cpp_guard_header);				\
 		write(name##_file_header, "\n");								\
 		defer { write(name##_file_header, "%s", cpp_guard_footer); };	\
-		write(name##_file_code, "#include \"%s\"\n", #name);			\
-		write(name##_file_code, "#include <miniz/miniz.h>\n", #name);	\
+		write(name##_file_code, "#include \"%s.h\"\n", #name);			\
+		write(name##_file_code, "#include <miniz/miniz.h>\n");			\
 		write(name##_file_code, "\n");									\
 		write(name##_file_code, "%s", cpp_guard_header);				\
 		write(name##_file_code, "\n");									\
@@ -1666,30 +1668,20 @@ int main(int argc, char **argv) {
 		for (auto row : experience_table)
 			exp_to_next_level.add(row[2].S32);
 
-		require_out_file(experience_header_file, out_dir + "/Experience.h");
-		require_out_file(experience_code_file, out_dir + "/Experience.cpp");
 
-		write(experience_header_file, "#pragma once\n");
-		write(experience_header_file, "#include <stdint.h>\n");
-		write(experience_header_file, "\n");
-		write(experience_header_file, "%s", cpp_guard_header);
-		write(experience_header_file, "\n");
-		write(experience_header_file, "#define NUM_EXPERIENCE_LEVELS (%llu)\n", exp_to_next_level.count);
-		write(experience_header_file, "\n");
-		write(experience_header_file, "extern const int32_t Experience_needed_to_next_level[NUM_EXPERIENCE_LEVELS];\n");
-		write(experience_header_file, "\n");
-		write(experience_header_file, "%s", cpp_guard_footer);
+		ROString additional_includes[] = { };
+		make_generated_file(Experience, additional_includes);
 
-		write(experience_code_file, "#include \"Experience.h\"\n");
-		write(experience_code_file, "\n");
-		write(experience_code_file, "%s", cpp_guard_header);
-		write(experience_code_file, "\n");
-		write(experience_code_file, "const int32_t Experience_needed_to_next_level[NUM_EXPERIENCE_LEVELS] {\n");
+		write(Experience_file_header, "#define NUM_EXPERIENCE_LEVELS (%llu)\n", exp_to_next_level.count);
+		write(Experience_file_header, "\n");
+		write(Experience_file_header, "extern const int32_t Experience_needed_to_next_level[NUM_EXPERIENCE_LEVELS];\n");
+		write(Experience_file_header, "\n");
+
+		write(Experience_file_code, "const int32_t Experience_needed_to_next_level[NUM_EXPERIENCE_LEVELS] {\n");
 		for (int i = 0; i < exp_to_next_level.count; i++)
-			write(experience_code_file, "    %d, // %d\n", exp_to_next_level[i], i);
-		write(experience_code_file, "};\n");
-		write(experience_code_file, "\n");
-		write(experience_code_file, "%s", cpp_guard_footer);
+			write(Experience_file_code, "    %d, // %d\n", exp_to_next_level[i], i);
+		write(Experience_file_code, "};\n");
+		write(Experience_file_code, "\n");
 	}
 
 	// Collectables
@@ -1706,39 +1698,27 @@ int main(int argc, char **argv) {
 		};
 
 
+		ROString additional_includes[] = { };
+		make_generated_file(Collectables, additional_includes);
 
-		require_out_file(collectables_header_file, out_dir + "/Collectables.h");
-		require_out_file(collectables_code_file, out_dir + "/Collectables.cpp");
+		write(Collectables_file_header, "#define NUM_COLLECTABILITY_INFOS (%llu)\n", collectability_table.num_rows);
+		write(Collectables_file_header, "\n");
+		write(Collectables_file_header, "struct Collectability_Info {\n");
+		write(Collectables_file_header, "    uint16_t low;\n");
+		write(Collectables_file_header, "    uint16_t medium;\n");
+		write(Collectables_file_header, "    uint16_t high;\n");
+		write(Collectables_file_header, "};\n");
+		write(Collectables_file_header, "\n");
+		write(Collectables_file_header, "extern const Collectability_Info Collectability_Infos[NUM_COLLECTABILITY_INFOS];\n");
+		write(Collectables_file_header, "\n");
 
-		write(collectables_header_file, "#pragma once\n");
-		write(collectables_header_file, "#include <stdint.h>\n");
-		write(collectables_header_file, "\n");
-		write(collectables_header_file, "%s", cpp_guard_header);
-		write(collectables_header_file, "\n");
-		write(collectables_header_file, "#define NUM_COLLECTABILITY_INFOS (%llu)\n", collectability_table.num_rows);
-		write(collectables_header_file, "\n");
-		write(collectables_header_file, "struct Collectability_Info {\n");
-		write(collectables_header_file, "    uint16_t low;\n");
-		write(collectables_header_file, "    uint16_t medium;\n");
-		write(collectables_header_file, "    uint16_t high;\n");
-		write(collectables_header_file, "};\n");
-		write(collectables_header_file, "\n");
-		write(collectables_header_file, "extern const Collectability_Info Collectability_Infos[NUM_COLLECTABILITY_INFOS];\n");
-		write(collectables_header_file, "\n");
-		write(collectables_header_file, "%s", cpp_guard_footer);
-
-		write(collectables_code_file, "#include \"Collectables.h\"\n");
-		write(collectables_code_file, "\n");
-		write(collectables_code_file, "%s", cpp_guard_header);
-		write(collectables_code_file, "\n");
-		write(collectables_code_file, "const Collectability_Info Collectability_Infos[NUM_COLLECTABILITY_INFOS] {\n");
+		write(Collectables_file_code, "const Collectability_Info Collectability_Infos[NUM_COLLECTABILITY_INFOS] {\n");
 		for (int i = 0; i < collectability_table.num_rows; i++) {
 			auto collectability_info = collectability_table[i];
-			write(collectables_code_file, "    { .low = %hu, .medium = %hu, .high = %hu },\n", collectability_info[2].U16, collectability_info[3].U16, collectability_info[2].U16);
+			write(Collectables_file_code, "    { .low = %hu, .medium = %hu, .high = %hu },\n", collectability_info[2].U16, collectability_info[3].U16, collectability_info[2].U16);
 		}
-		write(collectables_code_file, "};\n");
-		write(collectables_code_file, "\n");
-		write(collectables_code_file, "%s", cpp_guard_footer);
+		write(Collectables_file_code, "};\n");
+		write(Collectables_file_code, "\n");
 	}
 
 	// Items
@@ -1786,50 +1766,30 @@ int main(int argc, char **argv) {
 		String item_to_name_STR_DATA_buffer = item_to_name_STR_DATA.pack();
 		defer{ free(item_to_name_STR_DATA_buffer.data); };
 
-		#if 1
-		require_out_file(items_file_header, out_dir + "/Items.h");
-		require_out_file(items_file_code, out_dir + "/Items.cpp");
+		ROString additional_includes[] = { "\"../src/string.h\"" };
+		make_generated_file(Items, additional_includes);
 
-		write(items_file_header, "#pragma once\n");
-		write(items_file_header, "#include <stdint.h>\n");
-		write(items_file_header, "#include \"../src/string.h\"\n");
-		write(items_file_header, "\n");
-		write(items_file_header, "%s", cpp_guard_header);
-		write(items_file_header, "\n");
-
-		write(items_file_code, "#include \"Items.h\"\n");
-		write(items_file_code, "#include <miniz/miniz.h>\n");
-		write(items_file_code, "\n");
-		write(items_file_code, "%s", cpp_guard_header);
-		write(items_file_code, "\n");
-		#endif
+		write(Items_file_header, "typedef uint16_t Item;\n");
+		write_array_compressed_DN(Items_file, "ROString_Literal", "Item_to_name", item_to_name_DATA, "NUM_ITEMS");
+		write_array_compressed_N(Items_file, "uint8_t", "Item_to_flags", item_to_flags_DATA, "NUM_ITEMS");
+		write_array_compressed(Items_file, "char", "Item_to_name_STR_DATA", Array_View<u8>(item_to_name_STR_DATA_buffer, item_to_name_STR_DATA_buffer.length));
 
 
+		write(Items_file_header, "\n");
+		write(Items_file_header, "extern bool Items_decompress();\n");
+		write(Items_file_header, "\n");
 
-		write(items_file_header, "typedef uint16_t Item;\n");
-		write_array_compressed_DN(items_file, "ROString_Literal", "Item_to_name", item_to_name_DATA, "NUM_ITEMS");
-		write_array_compressed_N(items_file, "uint8_t", "Item_to_flags", item_to_flags_DATA, "NUM_ITEMS");
-		write_array_compressed(items_file, "char", "Item_to_name_STR_DATA", Array_View<u8>(item_to_name_STR_DATA_buffer, item_to_name_STR_DATA_buffer.length));
-
-
-		write(items_file_header, "\n");
-		write(items_file_header, "extern bool Items_decompress();\n");
-		write(items_file_header, "\n");
-
-		write(items_file_code, "bool Items_decompress() {\n");
-		write_array_decompression(items_file_code, "Item_to_name");
-		write_array_decompression(items_file_code, "Item_to_flags");
-		write_array_decompression(items_file_code, "Item_to_name_STR_DATA");
-		write(items_file_code, "    for(auto &item : Item_to_name) {\n");
-		write(items_file_code, "		uint64_t *data_ptr = (uint64_t *)&item.data;\n");
-		write(items_file_code, "        *data_ptr += (uint64_t)Item_to_name_STR_DATA;\n");
-		write(items_file_code, "    }\n");
-		write(items_file_code, "    \n");
-		write(items_file_code, "    return true;\n");
-		write(items_file_code, "}\n");
-
-		write(items_file_header, "%s", cpp_guard_footer);
-		write(items_file_code, "%s", cpp_guard_footer);
+		write(Items_file_code, "bool Items_decompress() {\n");
+		write_array_decompression(Items_file_code, "Item_to_name");
+		write_array_decompression(Items_file_code, "Item_to_flags");
+		write_array_decompression(Items_file_code, "Item_to_name_STR_DATA");
+		write(Items_file_code, "    for(auto &item : Item_to_name) {\n");
+		write(Items_file_code, "		uint64_t *data_ptr = (uint64_t *)&item.data;\n");
+		write(Items_file_code, "        *data_ptr += (uint64_t)Item_to_name_STR_DATA;\n");
+		write(Items_file_code, "    }\n");
+		write(Items_file_code, "    \n");
+		write(Items_file_code, "    return true;\n");
+		write(Items_file_code, "}\n");
 
 
 		//report_compression("Items", item_to_name_DATA.count * sizeof(item_to_name_DATA[0]) + item_to_name_STR_DATA_buffer.length + item_to_flags_DATA.count * sizeof(item_to_flags_DATA[0]), item_to_name_DATA_compressed.length + item_to_name_STR_DATA_compressed.length + item_to_flags_DATA_compressed.length);
@@ -2071,72 +2031,56 @@ int main(int argc, char **argv) {
 		Recipes_DATA_compressed.length = compressed_length;
 		defer{ mz_free(Recipes_DATA_compressed.data); };
 
+		ROString additional_includes[] = { "\"Items.h\"", "\"../src/Craft_Actions.h\"" };
+		make_generated_file(Recipes, additional_includes);
 
-		require_out_file(recipes_header_file, out_dir + "/Recipes.h");
-		require_out_file(recipes_code_file, out_dir + "/Recipes.c");
+		write(Recipes_file_header, "extern const uint16_t NUM_RECIPES[NUM_JOBS];\n");
+		write(Recipes_file_header, "#define MAX_NUM_RECIPES (%llu)\n", max_num_recipes);
+		write(Recipes_file_header, "\n");
+		write(Recipes_file_header, "typedef struct {\n");
+		write(Recipes_file_header, "    Item result;\n");
+		write(Recipes_file_header, "    Item ingredients[10];\n");
+		write(Recipes_file_header, "    \n");
+		write(Recipes_file_header, "    int32_t durability;\n");
+		write(Recipes_file_header, "    int32_t progress;\n");
+		write(Recipes_file_header, "    int32_t quality;\n");
+		write(Recipes_file_header, "    \n");
+		write(Recipes_file_header, "    uint8_t progress_divider;\n");
+		write(Recipes_file_header, "    uint8_t progress_modifier;\n");
+		write(Recipes_file_header, "    uint8_t quality_divider;\n");
+		write(Recipes_file_header, "    uint8_t quality_modifier;\n");
+		write(Recipes_file_header, "    \n");
+		write(Recipes_file_header, "    int8_t level;\n");
+		write(Recipes_file_header, "} Recipe;\n");
+		write(Recipes_file_header, "\n");
+		write(Recipes_file_header, "extern Recipe Recipes[NUM_JOBS][MAX_NUM_RECIPES];\n");
+		write(Recipes_file_header, "\n");
+		write(Recipes_file_header, "extern bool Recipes_decompress();\n");
+		write(Recipes_file_header, "\n");
 
-		write(recipes_header_file, "#pragma once\n");
-		write(recipes_header_file, "#include <stdint.h>\n");
-		write(recipes_header_file, "#include \"../src/Craft_Actions.h\"\n");
-		write(recipes_header_file, "#include \"Items.h\"\n");
-		write(recipes_header_file, "\n");
-		write(recipes_header_file, "%s", cpp_guard_header);
-		write(recipes_header_file, "\n");
-		write(recipes_header_file, "extern const uint16_t NUM_RECIPES[NUM_JOBS];\n");
-		write(recipes_header_file, "#define MAX_NUM_RECIPES (%llu)\n", max_num_recipes);
-		write(recipes_header_file, "\n");
-		write(recipes_header_file, "typedef struct {\n");
-		write(recipes_header_file, "    Item result;\n");
-		write(recipes_header_file, "    Item ingredients[10];\n");
-		write(recipes_header_file, "    \n");
-		write(recipes_header_file, "    int32_t durability;\n");
-		write(recipes_header_file, "    int32_t progress;\n");
-		write(recipes_header_file, "    int32_t quality;\n");
-		write(recipes_header_file, "    \n");
-		write(recipes_header_file, "    uint8_t progress_divider;\n");
-		write(recipes_header_file, "    uint8_t progress_modifier;\n");
-		write(recipes_header_file, "    uint8_t quality_divider;\n");
-		write(recipes_header_file, "    uint8_t quality_modifier;\n");
-		write(recipes_header_file, "    \n");
-		write(recipes_header_file, "    int8_t level;\n");
-		write(recipes_header_file, "} Recipe;\n");
-		write(recipes_header_file, "\n");
-		write(recipes_header_file, "extern Recipe Recipes[NUM_JOBS][MAX_NUM_RECIPES];\n");
-		write(recipes_header_file, "\n");
-		write(recipes_header_file, "extern bool Recipes_decompress();\n");
-		write(recipes_header_file, "\n");
-		write(recipes_header_file, "%s", cpp_guard_footer);
-
-
-		write(recipes_code_file, "#include \"Recipes.h\"\n");
-		write(recipes_code_file, "#include <miniz/miniz.h>\n");
-		write(recipes_code_file, "\n");
-		write(recipes_code_file, "%s", cpp_guard_header);
-		write(recipes_code_file, "\n");
-		write(recipes_code_file, "const uint16_t NUM_RECIPES[NUM_JOBS] = {\n");
+		write(Recipes_file_code, "const uint16_t NUM_RECIPES[NUM_JOBS] = {\n");
 		for (auto &job_recipes : all_recipes)
-			write(recipes_code_file, "    %llu,\n", job_recipes->count);
-		write(recipes_code_file, "};\n");
-		write(recipes_code_file, "\n");
-		write(recipes_code_file, "Recipe Recipes[NUM_JOBS][MAX_NUM_RECIPES];\n");
-		write(recipes_code_file, "\n");
-		write(recipes_code_file, "const uint8_t Recipes_compressed[] = {");
+			write(Recipes_file_code, "    %llu,\n", job_recipes->count);
+		write(Recipes_file_code, "};\n");
+		write(Recipes_file_code, "\n");
+		write(Recipes_file_code, "Recipe Recipes[NUM_JOBS][MAX_NUM_RECIPES];\n");
+		write(Recipes_file_code, "\n");
+		write(Recipes_file_code, "const uint8_t Recipes_compressed[] = {");
 		for (int i = 0; i < Recipes_DATA_compressed.length; i++) {
 			if (i % 20 == 0)
-				write(recipes_code_file, "\n    ");
-			write(recipes_code_file, "0x%02hhx, ", Recipes_DATA_compressed[i]);
+				write(Recipes_file_code, "\n    ");
+			write(Recipes_file_code, "0x%02hhx, ", Recipes_DATA_compressed[i]);
 		}
-		write(recipes_code_file, "\n");
-		write(recipes_code_file, "};\n");
-		write(recipes_code_file, "\n");
-		write(recipes_code_file, "bool Recipes_decompress() {\n");
-		write(recipes_code_file, "    if (tinfl_decompress_mem_to_mem(Recipes, sizeof(Recipes), Recipes_compressed, sizeof(Recipes_compressed), TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF) == TINFL_DECOMPRESS_MEM_TO_MEM_FAILED)\n");
-		write(recipes_code_file, "        return false;\n");
-		write(recipes_code_file, "    \n");
-		write(recipes_code_file, "    return true;\n");
-		write(recipes_code_file, "}\n");
-		write(recipes_code_file, "\n");
-		write(recipes_code_file, "%s", cpp_guard_footer);
+		write(Recipes_file_code, "\n");
+		write(Recipes_file_code, "};\n");
+		write(Recipes_file_code, "\n");
+		write(Recipes_file_code, "bool Recipes_decompress() {\n");
+		write(Recipes_file_code, "    if (tinfl_decompress_mem_to_mem(Recipes, sizeof(Recipes), Recipes_compressed, sizeof(Recipes_compressed), TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF) == TINFL_DECOMPRESS_MEM_TO_MEM_FAILED)\n");
+		write(Recipes_file_code, "        return false;\n");
+		write(Recipes_file_code, "    \n");
+		write(Recipes_file_code, "    return true;\n");
+		write(Recipes_file_code, "}\n");
+		write(Recipes_file_code, "\n");
 
 		report_compression("Recipes", Recipes_DATA_buffer.length, Recipes_DATA_compressed.length);
 	}
@@ -2397,153 +2341,117 @@ int main(int argc, char **argv) {
 			return find_uvs_for_texture(index);
 		};
 
-		require_out_file(CA_Texture_header_file, out_dir + "/CA_Texture.h");
-		require_out_file(CA_Texture_code_file, out_dir + "/CA_Texture.cpp");
+		//require_out_file(CA_Texture_header_file, out_dir + "/CA_Texture.h");
+		//require_out_file(CA_Texture_code_file, out_dir + "/CA_Texture.cpp");
 
-		write(CA_Texture_header_file, "#pragma once\n");
-		write(CA_Texture_header_file, "#include \"../src/types.h\"\n");
-		write(CA_Texture_header_file, "#include \"../src/Craft_Jobs.h\"\n");
-		write(CA_Texture_header_file, "#include \"../src/Craft_Actions.h\"\n");
-		write(CA_Texture_header_file, "\n");
-		write(CA_Texture_header_file, "%s", cpp_guard_header);
-		write(CA_Texture_header_file, "\n");
-		write(CA_Texture_header_file, "typedef enum : u8 {\n");
-		write(CA_Texture_header_file, "    FFUI_ActionButton_Filled,\n");
-		write(CA_Texture_header_file, "    FFUI_ActionButton_Empty,\n");
-		write(CA_Texture_header_file, "    \n");
-		write(CA_Texture_header_file, "    FFUI_Button_left,\n");
-		write(CA_Texture_header_file, "    FFUI_Button_middle,\n");
-		write(CA_Texture_header_file, "    FFUI_Button_right,\n");
-		write(CA_Texture_header_file, "    \n");
-		write(CA_Texture_header_file, "    FFUI_Checkbox_checked,\n");
-		write(CA_Texture_header_file, "    FFUI_Checkbox_unchecked,\n");
-		write(CA_Texture_header_file, "    \n");
-		write(CA_Texture_header_file, "    NUM_FFUI_UVS,\n");
-		write(CA_Texture_header_file, "} FFUI_uv_type;\n");
-		write(CA_Texture_header_file, "\n");
-		write(CA_Texture_header_file, "extern const f32x4 Craft_Job_Icon_uvs[NUM_JOBS];\n");
-		write(CA_Texture_header_file, "extern const f32x4 Craft_Action_Icon_uvs[NUM_JOBS][NUM_ACTIONS];\n");
-		write(CA_Texture_header_file, "\n");
-		write(CA_Texture_header_file, "extern const f32x4 FFUI_uvs[NUM_FFUI_UVS];\n");
-		write(CA_Texture_header_file, "\n");
-		write(CA_Texture_header_file, "#define CA_TEXTURE_WIDTH (%d)\n", ATLAS_DIMENSION);
-		write(CA_Texture_header_file, "#define CA_TEXTURE_HEIGHT (%d)\n", atlas_max_y);
-		write(CA_Texture_header_file, "#define CA_TEXTURE_MIP_LEVELS (1)\n");
-		write(CA_Texture_header_file, "#define CA_TEXTURE_ARRAY_SIZE (1)\n");
-		write(CA_Texture_header_file, "#define CA_TEXTURE_FORMAT (98)\n");
-		write(CA_Texture_header_file, "#define CA_TEXTURE_PIXEL_DATA (CA_TEXTURE_pixel_data)\n");
-		write(CA_Texture_header_file, "\n");
-		write(CA_Texture_header_file, "extern unsigned char CA_TEXTURE_pixel_data[%lld];\n", CA_TEXTURE_uncompressed.length);
-		write(CA_Texture_header_file, "\n");
-		write(CA_Texture_header_file, "extern bool Textures_decompress();\n");
-		write(CA_Texture_header_file, "\n");
-		write(CA_Texture_header_file, "%s", cpp_guard_footer);
+		ROString additional_includes[] = { "\"../src/types.h\"", "\"../src/Craft_Jobs.h\"", "\"../src/Craft_Actions.h\"" };
+		make_generated_file(CA_Texture, additional_includes);
+
+		write(CA_Texture_file_header, "typedef enum : u8 {\n");
+		write(CA_Texture_file_header, "    FFUI_ActionButton_Filled,\n");
+		write(CA_Texture_file_header, "    FFUI_ActionButton_Empty,\n");
+		write(CA_Texture_file_header, "    \n");
+		write(CA_Texture_file_header, "    FFUI_Button_left,\n");
+		write(CA_Texture_file_header, "    FFUI_Button_middle,\n");
+		write(CA_Texture_file_header, "    FFUI_Button_right,\n");
+		write(CA_Texture_file_header, "    \n");
+		write(CA_Texture_file_header, "    FFUI_Checkbox_checked,\n");
+		write(CA_Texture_file_header, "    FFUI_Checkbox_unchecked,\n");
+		write(CA_Texture_file_header, "    \n");
+		write(CA_Texture_file_header, "    NUM_FFUI_UVS,\n");
+		write(CA_Texture_file_header, "} FFUI_uv_type;\n");
+		write(CA_Texture_file_header, "\n");
+		write(CA_Texture_file_header, "extern const f32x4 Craft_Job_Icon_uvs[NUM_JOBS];\n");
+		write(CA_Texture_file_header, "extern const f32x4 Craft_Action_Icon_uvs[NUM_JOBS][NUM_ACTIONS];\n");
+		write(CA_Texture_file_header, "\n");
+		write(CA_Texture_file_header, "extern const f32x4 FFUI_uvs[NUM_FFUI_UVS];\n");
+		write(CA_Texture_file_header, "\n");
+		write(CA_Texture_file_header, "#define CA_TEXTURE_WIDTH (%d)\n", ATLAS_DIMENSION);
+		write(CA_Texture_file_header, "#define CA_TEXTURE_HEIGHT (%d)\n", atlas_max_y);
+		write(CA_Texture_file_header, "#define CA_TEXTURE_MIP_LEVELS (1)\n");
+		write(CA_Texture_file_header, "#define CA_TEXTURE_ARRAY_SIZE (1)\n");
+		write(CA_Texture_file_header, "#define CA_TEXTURE_FORMAT (98)\n");
+		write(CA_Texture_file_header, "#define CA_TEXTURE_PIXEL_DATA (CA_TEXTURE_pixel_data)\n");
+		write(CA_Texture_file_header, "\n");
+		write(CA_Texture_file_header, "extern unsigned char CA_TEXTURE_pixel_data[%lld];\n", CA_TEXTURE_uncompressed.length);
+		write(CA_Texture_file_header, "\n");
+		write(CA_Texture_file_header, "extern bool Textures_decompress();\n");
+		write(CA_Texture_file_header, "\n");
 
 
-
-		write(CA_Texture_code_file, "#include \"CA_Texture.h\"\n");
-		write(CA_Texture_code_file, "#include <miniz/miniz.h>\n");
-		write(CA_Texture_code_file, "\n");
-		write(CA_Texture_code_file, "%s", cpp_guard_header);
-		write(CA_Texture_code_file, "\n");
-		write(CA_Texture_code_file, "const f32x4 Craft_Job_Icon_uvs[NUM_JOBS] = {\n");
+		write(CA_Texture_file_code, "const f32x4 Craft_Job_Icon_uvs[NUM_JOBS] = {\n");
 		for (int job = 0; job < NUM_JOBS; job++) {
 			f32x4 uvs = find_uvs_for_icon(Craft_Job_to_Icon_id[job]);
-			write(CA_Texture_code_file, "    { %f, %f, %f, %f },\n", uvs.x, uvs.y, uvs.z, uvs.w);
+			write(CA_Texture_file_code, "    { %f, %f, %f, %f },\n", uvs.x, uvs.y, uvs.z, uvs.w);
 		}
-		write(CA_Texture_code_file, "};\n");
-		write(CA_Texture_code_file, "\n");
-		write(CA_Texture_code_file, "const f32x4 Craft_Action_Icon_uvs[NUM_JOBS][NUM_ACTIONS] = {\n");
+		write(CA_Texture_file_code, "};\n");
+		write(CA_Texture_file_code, "\n");
+		write(CA_Texture_file_code, "const f32x4 Craft_Action_Icon_uvs[NUM_JOBS][NUM_ACTIONS] = {\n");
 		for (int job = 0; job < NUM_JOBS; job++) {
-			write(CA_Texture_code_file, "    {\n");
+			write(CA_Texture_file_code, "    {\n");
 			for (int action = 0; action < NUM_ACTIONS; action++) {
 				f32x4 uvs = find_uvs_for_icon(Craft_Action_to_Icon_id[job][action]);
-				write(CA_Texture_code_file, "        { %f, %f, %f, %f },\n", uvs.x, uvs.y, uvs.z, uvs.w);
+				write(CA_Texture_file_code, "        { %f, %f, %f, %f },\n", uvs.x, uvs.y, uvs.z, uvs.w);
 			}
-			write(CA_Texture_code_file, "    },\n");
+			write(CA_Texture_file_code, "    },\n");
 		}
-		write(CA_Texture_code_file, "};\n");
-		write(CA_Texture_code_file, "\n");
-		write(CA_Texture_code_file, "const f32x4 FFUI_uvs[NUM_FFUI_UVS] = {\n\n");
-		write(CA_Texture_code_file, "    [FFUI_ActionButton_Filled] = { %f, %f, %f, %f },\n", UVS(find_uvs_for_texture(FFUI_ActionButton_Filled)));
-		write(CA_Texture_code_file, "    [FFUI_ActionButton_Empty] = { %f, %f, %f, %f },\n", UVS(find_uvs_for_texture(FFUI_ActionButton_Empty)));
-		write(CA_Texture_code_file, "    \n");
-		write(CA_Texture_code_file, "    [FFUI_Button_left] = { %f, %f, %f, %f },\n", UVS(find_uvs_for_texture(FFUI_Button_left)));
-		write(CA_Texture_code_file, "    [FFUI_Button_middle] = { %f, %f, %f, %f },\n", UVS(find_uvs_for_texture(FFUI_Button_middle)));
-		write(CA_Texture_code_file, "    [FFUI_Button_right] = { %f, %f, %f, %f },\n", UVS(find_uvs_for_texture(FFUI_Button_right)));
-		write(CA_Texture_code_file, "    \n");
-		write(CA_Texture_code_file, "    [FFUI_Checkbox_checked] = { %f, %f, %f, %f },\n", UVS(find_uvs_for_texture(FFUI_Checkbox_checked)));
-		write(CA_Texture_code_file, "    [FFUI_Checkbox_unchecked] = { %f, %f, %f, %f },\n", UVS(find_uvs_for_texture(FFUI_Checkbox_unchecked)));
-		write(CA_Texture_code_file, "};\n");
-		write(CA_Texture_code_file, "\n");
-		write(CA_Texture_code_file, "unsigned char CA_TEXTURE_pixel_data[%lld];\n", CA_TEXTURE_uncompressed.length);
-		write(CA_Texture_code_file, "\n");
-		write(CA_Texture_code_file, "const unsigned char CA_TEXTURE_pixel_data_compressed[%lld] = {", CA_TEXTURE_compressed.length);
+		write(CA_Texture_file_code, "};\n");
+		write(CA_Texture_file_code, "\n");
+		write(CA_Texture_file_code, "const f32x4 FFUI_uvs[NUM_FFUI_UVS] = {\n\n");
+		write(CA_Texture_file_code, "    [FFUI_ActionButton_Filled] = { %f, %f, %f, %f },\n", UVS(find_uvs_for_texture(FFUI_ActionButton_Filled)));
+		write(CA_Texture_file_code, "    [FFUI_ActionButton_Empty] = { %f, %f, %f, %f },\n", UVS(find_uvs_for_texture(FFUI_ActionButton_Empty)));
+		write(CA_Texture_file_code, "    \n");
+		write(CA_Texture_file_code, "    [FFUI_Button_left] = { %f, %f, %f, %f },\n", UVS(find_uvs_for_texture(FFUI_Button_left)));
+		write(CA_Texture_file_code, "    [FFUI_Button_middle] = { %f, %f, %f, %f },\n", UVS(find_uvs_for_texture(FFUI_Button_middle)));
+		write(CA_Texture_file_code, "    [FFUI_Button_right] = { %f, %f, %f, %f },\n", UVS(find_uvs_for_texture(FFUI_Button_right)));
+		write(CA_Texture_file_code, "    \n");
+		write(CA_Texture_file_code, "    [FFUI_Checkbox_checked] = { %f, %f, %f, %f },\n", UVS(find_uvs_for_texture(FFUI_Checkbox_checked)));
+		write(CA_Texture_file_code, "    [FFUI_Checkbox_unchecked] = { %f, %f, %f, %f },\n", UVS(find_uvs_for_texture(FFUI_Checkbox_unchecked)));
+		write(CA_Texture_file_code, "};\n");
+		write(CA_Texture_file_code, "\n");
+		write(CA_Texture_file_code, "unsigned char CA_TEXTURE_pixel_data[%lld];\n", CA_TEXTURE_uncompressed.length);
+		write(CA_Texture_file_code, "\n");
+		write(CA_Texture_file_code, "const unsigned char CA_TEXTURE_pixel_data_compressed[%lld] = {", CA_TEXTURE_compressed.length);
 		for (int i = 0; i < CA_TEXTURE_compressed.length; i++) {
 			if (i % 20 == 0)
-				write(CA_Texture_code_file, "\n    ");
-			write(CA_Texture_code_file, "0x%02hhx, ", CA_TEXTURE_compressed[i]);
+				write(CA_Texture_file_code, "\n    ");
+			write(CA_Texture_file_code, "0x%02hhx, ", CA_TEXTURE_compressed[i]);
 		}
-		write(CA_Texture_code_file, "};\n");
-		write(CA_Texture_code_file, "\n");
-		write(CA_Texture_code_file, "bool Textures_decompress() {\n");
-		write(CA_Texture_code_file, "    if (tinfl_decompress_mem_to_mem(CA_TEXTURE_pixel_data, sizeof(CA_TEXTURE_pixel_data), CA_TEXTURE_pixel_data_compressed, sizeof(CA_TEXTURE_pixel_data_compressed), TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF) == TINFL_DECOMPRESS_MEM_TO_MEM_FAILED)\n");
-		write(CA_Texture_code_file, "        return false;\n");
-		write(CA_Texture_code_file, "    \n");
-		write(CA_Texture_code_file, "    return true;\n");
-		write(CA_Texture_code_file, "}\n");
-		write(CA_Texture_code_file, "\n");
-		write(CA_Texture_code_file, "\n");
-		write(CA_Texture_code_file, "%s", cpp_guard_footer);
+		write(CA_Texture_file_code, "};\n");
+		write(CA_Texture_file_code, "\n");
+		write(CA_Texture_file_code, "bool Textures_decompress() {\n");
+		write(CA_Texture_file_code, "    if (tinfl_decompress_mem_to_mem(CA_TEXTURE_pixel_data, sizeof(CA_TEXTURE_pixel_data), CA_TEXTURE_pixel_data_compressed, sizeof(CA_TEXTURE_pixel_data_compressed), TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF) == TINFL_DECOMPRESS_MEM_TO_MEM_FAILED)\n");
+		write(CA_Texture_file_code, "        return false;\n");
+		write(CA_Texture_file_code, "    \n");
+		write(CA_Texture_file_code, "    return true;\n");
+		write(CA_Texture_file_code, "}\n");
+		write(CA_Texture_file_code, "\n");
+		write(CA_Texture_file_code, "\n");
 
 		report_compression("CA_Texture", CA_TEXTURE_uncompressed.length, CA_TEXTURE_compressed.length);
 	}
 
 	// General
 	{
-		require_out_file(compressed_data_header_file, out_dir + "/compressed_data.h");
-		require_out_file(compressed_data_code_file, out_dir + "/compressed_data.cpp");
+		ROString additional_includes[] = { "\"Items.h\"", "\"Recipes.h\"", "\"CA_Texture.h\"", "\"Experience.h\"", "\"Collectables.h\"" };
+		make_generated_file(compressed_data, additional_includes);
 
-		write(compressed_data_header_file, "#pragma once\n");
-		write(compressed_data_header_file, "#include \"Items.h\"\n");
-		write(compressed_data_header_file, "#include \"Recipes.h\"\n");
-		write(compressed_data_header_file, "#include \"CA_Texture.h\"\n");
-		write(compressed_data_header_file, "#include \"Experience.h\"\n");
-		write(compressed_data_header_file, "#include \"Collectables.h\"\n");
-		write(compressed_data_header_file, "\n");
-		write(compressed_data_header_file, "#ifdef __cplusplus\n");
-		write(compressed_data_header_file, "extern \"C\" {\n");
-		write(compressed_data_header_file, "#endif\n");
-		write(compressed_data_header_file, "\n");
-		write(compressed_data_header_file, "extern bool decompress_all_data();\n");
-		write(compressed_data_header_file, "\n");
-		write(compressed_data_header_file, "#ifdef __cplusplus\n");
-		write(compressed_data_header_file, "}\n");
-		write(compressed_data_header_file, "#endif\n");
+		write(compressed_data_file_header, "extern bool decompress_all_data();\n");
+		write(compressed_data_file_header, "\n");
 
-
-		write(compressed_data_code_file, "#include \"compressed_data.h\"\n");
-		write(compressed_data_code_file, "\n");
-		write(compressed_data_code_file, "#ifdef __cplusplus\n");
-		write(compressed_data_code_file, "extern \"C\" {\n");
-		write(compressed_data_code_file, "#endif\n");
-		write(compressed_data_code_file, "\n");
-		write(compressed_data_code_file, "bool decompress_all_data() {\n");
-		write(compressed_data_code_file, "    if(!Items_decompress())\n");
-		write(compressed_data_code_file, "        return false;\n");
-		write(compressed_data_code_file, "    \n");
-		write(compressed_data_code_file, "    if(!Recipes_decompress())\n");
-		write(compressed_data_code_file, "        return false;\n");
-		write(compressed_data_code_file, "    \n");
-		write(compressed_data_code_file, "    if(!Textures_decompress())\n");
-		write(compressed_data_code_file, "        return false;\n");
-		write(compressed_data_code_file, "    \n");
-		write(compressed_data_code_file, "    return true;\n");
-		write(compressed_data_code_file, "}\n");
-		write(compressed_data_code_file, "\n");
-		write(compressed_data_code_file, "#ifdef __cplusplus\n");
-		write(compressed_data_code_file, "}\n");
-		write(compressed_data_code_file, "#endif\n");
+		write(compressed_data_file_code, "bool decompress_all_data() {\n");
+		write(compressed_data_file_code, "    if(!Items_decompress())\n");
+		write(compressed_data_file_code, "        return false;\n");
+		write(compressed_data_file_code, "    \n");
+		write(compressed_data_file_code, "    if(!Recipes_decompress())\n");
+		write(compressed_data_file_code, "        return false;\n");
+		write(compressed_data_file_code, "    \n");
+		write(compressed_data_file_code, "    if(!Textures_decompress())\n");
+		write(compressed_data_file_code, "        return false;\n");
+		write(compressed_data_file_code, "    \n");
+		write(compressed_data_file_code, "    return true;\n");
+		write(compressed_data_file_code, "}\n");
+		write(compressed_data_file_code, "\n");
 	}
 
 	report_total_compression();

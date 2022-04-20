@@ -152,7 +152,7 @@
     <ClCompile Include="generated_src\CA_Texture.cpp" />
     <ClCompile Include="generated_src\compressed_data.cpp" />
     <ClCompile Include="generated_src\Items.cpp" />
-    <ClCompile Include="generated_src\Recipes.c" />
+    <ClCompile Include="generated_src\Recipes.cpp" />
     <ClCompile Include="libs\miniz\miniz.c" />
     <ClCompile Include="src\crafting_simulator.cpp" />
     <ClCompile Include="src\Craft_Actions.cpp" />

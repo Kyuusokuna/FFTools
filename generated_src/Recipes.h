@@ -1,7 +1,7 @@
 #pragma once
 #include <stdint.h>
-#include "../src/Craft_Actions.h"
 #include "Items.h"
+#include "../src/Craft_Actions.h"
 
 #ifdef __cplusplus
 extern "C" {

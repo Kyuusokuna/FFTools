@@ -1,4 +1,5 @@
 #pragma once
+#include <stdint.h>
 #include "Items.h"
 #include "Recipes.h"
 #include "CA_Texture.h"

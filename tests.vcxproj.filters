@@ -24,9 +24,6 @@
     <ClCompile Include="src\Craft_Actions.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="generated_src\Recipes.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="generated_src\Items.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -37,6 +34,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="generated_src\compressed_data.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="generated_src\Recipes.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

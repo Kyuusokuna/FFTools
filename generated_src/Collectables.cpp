@@ -1,4 +1,5 @@
 #include "Collectables.h"
+#include <miniz/miniz.h>
 
 #ifdef __cplusplus
 extern "C" {

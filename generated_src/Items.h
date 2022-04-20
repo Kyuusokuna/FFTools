@@ -6,9 +6,8 @@
 extern "C" {
 #endif
 
-#define NUM_ITEMS (38001)
-
 typedef uint16_t Item;
+#define NUM_ITEMS (38001)
 extern ROString_Literal Item_to_name[NUM_ITEMS];
 extern uint8_t Item_to_flags[NUM_ITEMS];
 

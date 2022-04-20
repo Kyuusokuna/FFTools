@@ -81,6 +81,9 @@
     <ClCompile Include="generated_src\Experience.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="generated_src\Collectables.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\defer.h">
@@ -177,6 +180,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="generated_src\Experience.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="generated_src\Collectables.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

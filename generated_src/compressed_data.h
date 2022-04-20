@@ -3,6 +3,7 @@
 #include "Recipes.h"
 #include "CA_Texture.h"
 #include "Experience.h"
+#include "Collectables.h"
 
 #ifdef __cplusplus
 extern "C" {

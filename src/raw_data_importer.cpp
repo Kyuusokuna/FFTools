@@ -64,8 +64,6 @@ using namespace ispc;
 char cpp_guard_header[] = "#ifdef __cplusplus\nextern \"C\" {\n#endif\n";
 char cpp_guard_footer[] = "#ifdef __cplusplus\n}\n#endif\n";
 
-#define require_out_file(var_name, path) auto var_name = fopen((path).c_str(), "wb"); if(!(var_name)) { printf("failed to open file '%s' for writing.\n", (path).c_str()); return 1; }; defer { fclose((var_name)); };
-#define write(var_name, ...) if(fprintf(var_name, __VA_ARGS__) < 0) { printf("failed to write to '%s'.\n", #var_name); error_exit(1); }
 #define expect(expression) if(!(expression)) { printf("expect '%s' failed\n", #expression); error_exit(1); }
 void error_exit(int code) {
 	exit(code);
@@ -1515,9 +1513,14 @@ bool parse_ex_file(const ROString name, Data_Table &result) {
 	return true;
 }
 
+Byte_View compress(Byte_View source) {
+	size_t compressed_length = 0;
+	auto compressed_data = tdefl_compress_mem_to_heap(source.data, source.length, &compressed_length, TDEFL_MAX_PROBES_MASK);
+	expect(compressed_data);
+	return Byte_View((u8 *)compressed_data, compressed_length);
+}
+
 // EXD:
-//   - ParamGrow
-//   - 
 //   - GatheringItem
 //   - GatheringPoint
 //   - GatheringPointName
@@ -1538,6 +1541,13 @@ bool parse_ex_file(const ROString name, Data_Table &result) {
 //   -
 //   - SpecialShop
 //   - SpecialShopItemCategory
+//   -
+//   - CollectablesShop
+//   - CollectablesShopItem
+//   - CollectablesShopItemGroup
+//   - CollectablesShopRefine
+//   - CollectablesShopRewardItem
+//   - CollectablesShopRewardScrip
 //   -
 
 int main(int argc, char **argv) {
@@ -1582,7 +1592,68 @@ int main(int argc, char **argv) {
 	expect(get_file("exd/root.exl", &root_exl));
 	auto data_files = parse_root_exl(&root_exl);
 
-	#define get_data_table_generic(table_name, var_name) Data_Table var_name##s = {}; expect(parse_ex_file(table_name, var_name##s)); expect(var_name##s .localised_tables[Language_Generic].num_rows); defer{ experience_tables.free(); }; auto var_name = var_name##s .localised_tables[Language_Generic];
+	#define get_data_table_generic(table_name, var_name) Data_Table var_name##s = {}; expect(parse_ex_file(table_name, var_name##s)); expect(var_name##s .localised_tables[Language_Generic].num_rows); defer{ var_name##s .free(); }; auto var_name = var_name##s .localised_tables[Language_Generic];
+	#define get_data_table_english(table_name, var_name) Data_Table var_name##s = {}; expect(parse_ex_file(table_name, var_name##s)); expect(var_name##s .localised_tables[Language_English].num_rows); defer{ var_name##s .free(); }; auto var_name = var_name##s .localised_tables[Language_English];
+
+	#define write(var_name, ...) if(fprintf(var_name, __VA_ARGS__) < 0) { printf("failed to write to '%s'.\n", #var_name); error_exit(1); }
+
+	#define _write_compressed_array(dest, name, uncompressed_array)	{	\
+		auto compressed = compress(Array_View(uncompressed_array));		\
+		defer{ mz_free(compressed.data); };								\
+																		\
+		write(dest, "const uint8_t %s_compressed[] = {", name);			\
+		for (int i = 0; i < compressed.length; i++) {					\
+			if (i % 20 == 0)											\
+				write(dest, "\n    ");									\
+			write(dest, "0x%02hhx, ", compressed[i]);					\
+		}																\
+		write(dest, "\n");												\
+		write(dest, "};\n");											\
+	}
+
+	#define write_array_compressed(dest, type, name, uncompressed_array) {			\
+		write(dest##_code, "%s %s[%llu];\n", type, name, uncompressed_array.count); \
+		_write_compressed_array(dest##_code, name, uncompressed_array)				\
+		write(dest##_code, "\n");													\
+	}
+
+	#define write_array_compressed_DN(dest, type, name, uncompressed_array, count_name) {	\
+		write(dest##_header, "#define %s (%llu)\n", count_name, uncompressed_array.count);	\
+		write(dest##_header, "extern %s %s[%s];\n", type, name, count_name);				\
+		write(dest##_code, "%s %s[%s];\n", type, name, count_name);							\
+		_write_compressed_array(dest##_code, name, uncompressed_array)						\
+		write(dest##_code, "\n");															\
+	}
+
+	#define write_array_compressed_N(dest, type, name, uncompressed_array, count_name) {	\
+		write(dest##_header, "extern %s %s[%s];\n", type, name, count_name);				\
+		write(dest##_code, "%s %s[%s];\n", type, name, count_name);							\
+		_write_compressed_array(dest##_code, name, uncompressed_array)						\
+		write(dest##_code, "\n");															\
+	}
+
+	#define write_array_decompression(dest, name) {	\
+		write(dest, "    if (tinfl_decompress_mem_to_mem(%s, sizeof(%s), %s_compressed, sizeof(%s_compressed), TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF) == TINFL_DECOMPRESS_MEM_TO_MEM_FAILED)\n", name, name, name, name);	\
+		write(dest, "        return false;\n");		\
+		write(dest, "    \n");						\
+	}
+
+	#define require_out_file(var_name, path) auto var_name = fopen((path).c_str(), "wb"); if(!(var_name)) { printf("failed to open file '%s' for writing.\n", (path).c_str()); return 1; }; defer { fclose((var_name)); };
+	#define make_generated_file(name)									\
+		require_out_file(name##_file_header, out_dir + #name ".h");		\
+		require_out_file(name##_file_code, out_dir + #name ".cpp");		\
+		write(name##_file_header, "#pragma once\n");					\
+		write(name##_file_header, "#include <stdint.h>\n");				\
+		write(name##_file_header, "\n");								\
+		write(name##_file_header, "%s", cpp_guard_header);				\
+		write(name##_file_header, "\n");								\
+		defer { write(name##_file_header, "%s", cpp_guard_footer); };	\
+		write(name##_file_code, "#include \"%s\"\n", #name);			\
+		write(name##_file_code, "#include <miniz/miniz.h>\n", #name);	\
+		write(name##_file_code, "\n");									\
+		write(name##_file_code, "%s", cpp_guard_header);				\
+		write(name##_file_code, "\n");									\
+		defer{ write(name##_file_code, "%s", cpp_guard_footer); };		
 
 
 	// Experience
@@ -1621,122 +1692,147 @@ int main(int argc, char **argv) {
 		write(experience_code_file, "%s", cpp_guard_footer);
 	}
 
+	// Collectables
+	{
+		get_data_table_generic("CollectablesShopItem", collectables_turn_ins);
+		get_data_table_english("CollectablesShopItemGroup", collectables_turn_ins_category);
+		get_data_table_generic("CollectablesShopRefine", collectability_table);
+		get_data_table_generic("CollectablesShopRewardScrip", collectables_rewards);
+
+		struct Collectable_turn_in {
+			s32 item_id;
+			s32 category_index;
+
+		};
+
+
+
+		require_out_file(collectables_header_file, out_dir + "/Collectables.h");
+		require_out_file(collectables_code_file, out_dir + "/Collectables.cpp");
+
+		write(collectables_header_file, "#pragma once\n");
+		write(collectables_header_file, "#include <stdint.h>\n");
+		write(collectables_header_file, "\n");
+		write(collectables_header_file, "%s", cpp_guard_header);
+		write(collectables_header_file, "\n");
+		write(collectables_header_file, "#define NUM_COLLECTABILITY_INFOS (%llu)\n", collectability_table.num_rows);
+		write(collectables_header_file, "\n");
+		write(collectables_header_file, "struct Collectability_Info {\n");
+		write(collectables_header_file, "    uint16_t low;\n");
+		write(collectables_header_file, "    uint16_t medium;\n");
+		write(collectables_header_file, "    uint16_t high;\n");
+		write(collectables_header_file, "};\n");
+		write(collectables_header_file, "\n");
+		write(collectables_header_file, "extern const Collectability_Info Collectability_Infos[NUM_COLLECTABILITY_INFOS];\n");
+		write(collectables_header_file, "\n");
+		write(collectables_header_file, "%s", cpp_guard_footer);
+
+		write(collectables_code_file, "#include \"Collectables.h\"\n");
+		write(collectables_code_file, "\n");
+		write(collectables_code_file, "%s", cpp_guard_header);
+		write(collectables_code_file, "\n");
+		write(collectables_code_file, "const Collectability_Info Collectability_Infos[NUM_COLLECTABILITY_INFOS] {\n");
+		for (int i = 0; i < collectability_table.num_rows; i++) {
+			auto collectability_info = collectability_table[i];
+			write(collectables_code_file, "    { .low = %hu, .medium = %hu, .high = %hu },\n", collectability_info[2].U16, collectability_info[3].U16, collectability_info[2].U16);
+		}
+		write(collectables_code_file, "};\n");
+		write(collectables_code_file, "\n");
+		write(collectables_code_file, "%s", cpp_guard_footer);
+	}
+
 	// Items
 	{
-		Data_Table items_table = {};
-		expect(parse_ex_file("Item", items_table));
-		defer{ items_table.free(); };
+		get_data_table_english("Item", item_table);
 
-		expect(items_table.column_types[11] == Column_Type_STRING);
+		expect(item_tables.column_types[11] == Column_Type_STRING);
+		expect(item_tables.column_types[39] == Column_Type_BIT7);
+
+		Array<String> item_to_name_DATA = {};
+		Concatenator item_to_name_STR_DATA = {};
+		Array<u8> item_to_flags_DATA = {};
+
+		defer{ item_to_name_DATA.reset(); };
+		defer{ item_to_name_STR_DATA.free(); };
+		defer{ item_to_flags_DATA.reset(); };
+
+		item_to_name_DATA.ensure_capacity(item_table.num_rows);
+		item_to_flags_DATA.ensure_capacity(item_table.num_rows);
 
 		char null_terminator = '\0';
-		Concatenator item_to_name_DATA = {};
-		Concatenator item_to_name_STR_DATA = {};
-		defer{ item_to_name_DATA.free(); };
-		defer{ item_to_name_STR_DATA.free(); };
-
 		item_to_name_STR_DATA.add(&null_terminator);
 		u64 curr_str_offset = 1;
 
-		for(auto item : items_table.localised_tables[Language_English]) {
+		for(auto item : item_table) {
 			auto item_name = item[11].STRING;
+			auto item_is_collectable = item[39].BIT_FIELD & 0x80;
+
+			auto &placeholder_string = item_to_name_DATA.add({});
+			auto &flags = item_to_flags_DATA.add({});
+
+			flags |= (item_is_collectable << 0);
 
 			if (item_name.length) {
+				placeholder_string.length = item_name.length;
+				placeholder_string.data = (char *)curr_str_offset;
+
 				item_to_name_STR_DATA.add(item_name);
 				item_to_name_STR_DATA.add(&null_terminator);
 
-				String placeholder_string = { item_name.length, (char *)curr_str_offset };
-				item_to_name_DATA.add(&placeholder_string);
-
 				curr_str_offset += item_name.length + 1;
-			} else {
-				String placeholder_string = { 0, (char *)0 };
-				item_to_name_DATA.add(&placeholder_string);
 			}
 		}
 
-		String item_to_name_DATA_compressed;
-		String item_to_name_STR_DATA_compressed;
-
-		String item_to_name_DATA_buffer = item_to_name_DATA.pack();
 		String item_to_name_STR_DATA_buffer = item_to_name_STR_DATA.pack();
-		defer{ free(item_to_name_DATA_buffer.data); };
 		defer{ free(item_to_name_STR_DATA_buffer.data); };
 
-		size_t compressed_length = 0;
-		item_to_name_DATA_compressed.data = (char *)tdefl_compress_mem_to_heap(item_to_name_DATA_buffer.data, item_to_name_DATA_buffer.length, &compressed_length, TDEFL_MAX_PROBES_MASK);
-		item_to_name_DATA_compressed.length = compressed_length;
+		#if 1
+		require_out_file(items_file_header, out_dir + "/Items.h");
+		require_out_file(items_file_code, out_dir + "/Items.cpp");
 
-		item_to_name_STR_DATA_compressed.data = (char *)tdefl_compress_mem_to_heap(item_to_name_STR_DATA_buffer.data, item_to_name_STR_DATA_buffer.length, &compressed_length, TDEFL_MAX_PROBES_MASK);
-		item_to_name_STR_DATA_compressed.length = compressed_length;
+		write(items_file_header, "#pragma once\n");
+		write(items_file_header, "#include <stdint.h>\n");
+		write(items_file_header, "#include \"../src/string.h\"\n");
+		write(items_file_header, "\n");
+		write(items_file_header, "%s", cpp_guard_header);
+		write(items_file_header, "\n");
 
-		defer{ mz_free(item_to_name_DATA_compressed.data); };
-		defer{ mz_free(item_to_name_STR_DATA_compressed.data); };
+		write(items_file_code, "#include \"Items.h\"\n");
+		write(items_file_code, "#include <miniz/miniz.h>\n");
+		write(items_file_code, "\n");
+		write(items_file_code, "%s", cpp_guard_header);
+		write(items_file_code, "\n");
+		#endif
 
-		require_out_file(items_header_file, out_dir + "/Items.h");
-		require_out_file(items_code_file, out_dir + "/Items.cpp");
 
-		write(items_header_file, "#pragma once\n");
-		write(items_header_file, "#include <stdint.h>\n");
-		write(items_header_file, "#include \"../src/string.h\"\n");
-		write(items_header_file, "\n");
-		write(items_header_file, "%s", cpp_guard_header);
-		write(items_header_file, "\n");
-		write(items_header_file, "#define NUM_ITEMS (%llu)\n", items_table.localised_tables[Language_English].num_rows);
-		write(items_header_file, "\n");
-		write(items_header_file, "typedef uint16_t Item;\n");
-		write(items_header_file, "extern ROString_Literal Item_to_name[NUM_ITEMS];\n");
-		write(items_header_file, "\n");
-		write(items_header_file, "extern bool Items_decompress();\n");
-		write(items_header_file, "\n");
-		write(items_header_file, "%s", cpp_guard_footer);
 
-		write(items_code_file, "#include \"Items.h\"\n");
-		write(items_code_file, "#include <miniz/miniz.h>\n");
-		write(items_code_file, "\n");
-		write(items_code_file, "%s", cpp_guard_header);
-		write(items_code_file, "\n");
-		write(items_code_file, "ROString_Literal Item_to_name[NUM_ITEMS];\n");
-		write(items_code_file, "\n");
-		write(items_code_file, "char item_to_name_STR_DATA[%lld];\n", item_to_name_STR_DATA_buffer.length);
-		write(items_code_file, "\n");
-		write(items_code_file, "const uint8_t item_to_name_STR_DATA_compressed[] {");
-		for (int i = 0; i < item_to_name_STR_DATA_compressed.length; i++) {
-			if (i % 20 == 0)
-				write(items_code_file, "\n    ");
-			write(items_code_file, "0x%02hhx, ", item_to_name_STR_DATA_compressed[i]);
-		}
-		write(items_code_file, "\n");
-		write(items_code_file, "};\n");
-		write(items_code_file, "\n");
-		write(items_code_file, "const uint8_t Item_to_name_compressed[] {");
-		for (int i = 0; i < item_to_name_DATA_compressed.length; i++) {
-			if (i % 20 == 0)
-				write(items_code_file, "\n    ");
-			write(items_code_file, "0x%02hhx, ", item_to_name_DATA_compressed[i]);
-		}
-		write(items_code_file, "\n");
-		write(items_code_file, "};\n");
-		write(items_code_file, "\n");
-		write(items_code_file, "\n");
-		write(items_code_file, "bool Items_decompress() {\n");
-		write(items_code_file, "    if (tinfl_decompress_mem_to_mem(item_to_name_STR_DATA, sizeof(item_to_name_STR_DATA), item_to_name_STR_DATA_compressed, sizeof(item_to_name_STR_DATA_compressed), TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF) == TINFL_DECOMPRESS_MEM_TO_MEM_FAILED)\n");
-		write(items_code_file, "        return false;\n");
-		write(items_code_file, "    \n");
-		write(items_code_file, "    if (tinfl_decompress_mem_to_mem(Item_to_name, sizeof(Item_to_name), Item_to_name_compressed, sizeof(Item_to_name_compressed), TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF) == TINFL_DECOMPRESS_MEM_TO_MEM_FAILED)\n");
-		write(items_code_file, "        return false;\n");
-		write(items_code_file, "    \n");
-		write(items_code_file, "    for(auto &item : Item_to_name) {\n");
-		write(items_code_file, "		uint64_t *data_ptr = (uint64_t *)&item.data;\n");
-		write(items_code_file, "        *data_ptr += (uint64_t)item_to_name_STR_DATA;\n");
-		write(items_code_file, "    }\n");
-		write(items_code_file, "    \n");
-		write(items_code_file, "    return true;\n");
-		write(items_code_file, "}\n");
-		write(items_code_file, "\n");
-		write(items_code_file, "%s", cpp_guard_footer);
+		write(items_file_header, "typedef uint16_t Item;\n");
+		write_array_compressed_DN(items_file, "ROString_Literal", "Item_to_name", item_to_name_DATA, "NUM_ITEMS");
+		write_array_compressed_N(items_file, "uint8_t", "Item_to_flags", item_to_flags_DATA, "NUM_ITEMS");
+		write_array_compressed(items_file, "char", "Item_to_name_STR_DATA", Array_View<u8>(item_to_name_STR_DATA_buffer, item_to_name_STR_DATA_buffer.length));
 
-		report_compression("Items", item_to_name_DATA_buffer.length + item_to_name_STR_DATA_buffer.length, item_to_name_DATA_compressed.length + item_to_name_STR_DATA_compressed.length);
+
+		write(items_file_header, "\n");
+		write(items_file_header, "extern bool Items_decompress();\n");
+		write(items_file_header, "\n");
+
+		write(items_file_code, "bool Items_decompress() {\n");
+		write_array_decompression(items_file_code, "Item_to_name");
+		write_array_decompression(items_file_code, "Item_to_flags");
+		write_array_decompression(items_file_code, "Item_to_name_STR_DATA");
+		write(items_file_code, "    for(auto &item : Item_to_name) {\n");
+		write(items_file_code, "		uint64_t *data_ptr = (uint64_t *)&item.data;\n");
+		write(items_file_code, "        *data_ptr += (uint64_t)Item_to_name_STR_DATA;\n");
+		write(items_file_code, "    }\n");
+		write(items_file_code, "    \n");
+		write(items_file_code, "    return true;\n");
+		write(items_file_code, "}\n");
+
+		write(items_file_header, "%s", cpp_guard_footer);
+		write(items_file_code, "%s", cpp_guard_footer);
+
+
+		//report_compression("Items", item_to_name_DATA.count * sizeof(item_to_name_DATA[0]) + item_to_name_STR_DATA_buffer.length + item_to_flags_DATA.count * sizeof(item_to_flags_DATA[0]), item_to_name_DATA_compressed.length + item_to_name_STR_DATA_compressed.length + item_to_flags_DATA_compressed.length);
 	}
 
 	// Recipes
@@ -1801,25 +1897,9 @@ int main(int argc, char **argv) {
 		defer{ recipe_level_tables.reset(); };
 		defer{ recipe_lookups.reset(); };
 
-		Data_Table recipe_tables = {};
-		expect(parse_ex_file("Recipe", recipe_tables));
-		defer{ recipe_tables.free(); };
-
-		Data_Table recipe_level_table_tables = {};
-		expect(parse_ex_file("RecipeLevelTable", recipe_level_table_tables));
-		defer{ recipe_level_table_tables.free(); };
-
-		Data_Table recipe_lookup_tables = {};
-		expect(parse_ex_file("RecipeLookup", recipe_lookup_tables));
-		defer{ recipe_lookup_tables.free(); };
-
-		expect(recipe_tables.localised_tables[Language_Generic].num_rows);
-		expect(recipe_level_table_tables.localised_tables[Language_Generic].num_rows);
-		expect(recipe_lookup_tables.localised_tables[Language_Generic].num_rows);
-
-		auto recipe_table = recipe_tables.localised_tables[Language_Generic];
-		auto recipe_level_table_table = recipe_level_table_tables.localised_tables[Language_Generic];
-		auto recipe_lookup_table = recipe_lookup_tables.localised_tables[Language_Generic];
+		get_data_table_generic("Recipe", recipe_table);
+		get_data_table_generic("RecipeLevelTable", recipe_level_table_table);
+		get_data_table_generic("RecipeLookup", recipe_lookup_table);
 
 		recipes.ensure_capacity(recipe_table.num_rows);
 		recipe_level_tables.ensure_capacity(recipe_level_table_table.num_rows);
@@ -1877,8 +1957,6 @@ int main(int argc, char **argv) {
 			lookup.ALC = row[8].U16;
 			lookup.CUL = row[9].U16;
 		}
-
-		int k = 0;
 
 		struct Output_Recipe {
 			u16 Result;
@@ -2431,6 +2509,7 @@ int main(int argc, char **argv) {
 		write(compressed_data_header_file, "#include \"Recipes.h\"\n");
 		write(compressed_data_header_file, "#include \"CA_Texture.h\"\n");
 		write(compressed_data_header_file, "#include \"Experience.h\"\n");
+		write(compressed_data_header_file, "#include \"Collectables.h\"\n");
 		write(compressed_data_header_file, "\n");
 		write(compressed_data_header_file, "#ifdef __cplusplus\n");
 		write(compressed_data_header_file, "extern \"C\" {\n");

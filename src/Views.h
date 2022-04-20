@@ -1,6 +1,7 @@
 #pragma once
 #include "types.h"
 #include "string.h"
+#include "Array.h"
 
 struct Byte_View {
 	u8 *data;
@@ -58,6 +59,7 @@ struct Array_View {
 	Array_View() : data(0), count(0) { }
 	Array_View(Byte_View source, u64 count) : data((T *)source.data), count(min(count, source.length / sizeof(T))) { }
 	Array_View(Byte_View source, u64 count, u64 offset) : Array_View(Byte_View(source, offset), count) { }
+	Array_View(Array<T> source) : data(source.values), count(source.count) { }
 
 	T &operator[](u64 index) {
 		return data[index];
@@ -69,6 +71,10 @@ struct Array_View {
 
 	T *end() {
 		return data + count;
+	}
+
+	operator Byte_View() {
+		return Byte_View((u8 *)data, count * sizeof(T));
 	}
 };
 

@@ -48,6 +48,9 @@
     <ClInclude Include="src\time.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="libs\khash\khash.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Natvis Include="src\Array.natvis" />

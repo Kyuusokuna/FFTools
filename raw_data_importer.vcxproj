@@ -160,6 +160,7 @@
     <ClInclude Include="data\Craft_Action_to_Icon_id.h" />
     <ClInclude Include="data\Craft_Job_to_Icon_id.h" />
     <ClInclude Include="libs\bc7e\$bc7e_ispc.h" />
+    <ClInclude Include="libs\khash\khash.h" />
     <ClInclude Include="libs\miniz\miniz.h" />
     <ClInclude Include="src\Array.h" />
     <ClInclude Include="src\d3d11_util.h" />

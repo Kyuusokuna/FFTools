@@ -6,7 +6,6 @@
 #include <Windows.h>
 #include <miniz/miniz.h>
 #include <bc7e/$bc7e_ispc.h>
-#include <uthash/uthash.h>
 #include <khash/khash.h>
 #define STB_IMAGE_IMPLEMENTATION
 #define STBI_WINDOWS_UTF8
@@ -319,13 +318,6 @@ enum File_Type : u32 {
 	NUM_FILE_TYPES,
 };
 
-struct IndexedFile {
-	UT_hash_handle hh;
-	u32 filepath_crc32;
-
-	Byte_View data;
-};
-
 struct File {
 	File_Type type;
 
@@ -338,7 +330,9 @@ struct File {
 	Byte_View data;
 };
 
-IndexedFile *all_files[NUM_EXPANSIONS][NUM_PACK_TYPES];
+KHASH_MAP_INIT_INT(FILE_TABLE, Byte_View);
+khash_t(FILE_TABLE) *all_files[NUM_EXPANSIONS][NUM_PACK_TYPES];
+
 
 DXGI_FORMAT convert_ffxiv_to_dxgi_format(u32 format) {
 	switch (format) {
@@ -387,12 +381,11 @@ bool get_file(Expansion expansion, Pack_Type pack_type, u32 crc32_of_path, File 
 
 	auto &files = all_files[expansion][pack_type];
 
-	IndexedFile *indexed_file = 0;
-	HASH_FIND_INT(files, &crc32_of_path, indexed_file);
-	if (!indexed_file)
+	khiter_t k = kh_get(FILE_TABLE, files, crc32_of_path);
+	if (!kh_exist(files, k))
 		return false;
 
-	Byte_View data = indexed_file->data;
+	Byte_View data = kh_val(files, k);
 
 	struct File_Header {
 		u32 offset_to_data;
@@ -482,6 +475,9 @@ void init_file_table(const char *base_dir) {
 
 			auto &files = all_files[pack_expansion][pack_type];
 
+			if (!files)
+				files = kh_init(FILE_TABLE);
+
 			auto index_path = path;
 			auto index_data = map_file(path.string().c_str());
 			if (!index_data.data)
@@ -540,18 +536,29 @@ void init_file_table(const char *base_dir) {
 
 				expect(dat_files[file_index].data);
 				expect(offset);
+				
+				auto file_data = Byte_View(dat_files[file_index], offset);
+				expect(file_data.length);
+
+				int ret = 0;
+				khiter_t k = kh_put(FILE_TABLE, files, *crc32, &ret);
+				expect(ret == 1);
+
+				kh_val(files, k) = file_data;
+
+
+				#if 0
+				#define HASHTABLE_FIND(table, key, output_ptr) { khiter_t k = kh_get(FILE_TABLE, table, key); if(k != kh_end(table)) output_ptr = &kh_value(table, k); }
+				#define HASHTABLE_INSERT(table, key, value_ptr) { int ret = 0; khiter_t k = kh_put(FILE_TABLE, table, file.key, &ret); expect(ret == 1); kh_value(table, k) = *value_ptr; }
+
 
 				IndexedFile file = {};
 				file.filepath_crc32 = *crc32;
 				file.data = Byte_View(dat_files[file_index], offset);
 				expect(file.data.length);
 
-				IndexedFile *file_ptr = 0;
-				HASH_FIND_INT(files, &file.filepath_crc32, file_ptr);
-				expect(!file_ptr);
-
-				file_ptr = new IndexedFile(file);
-				HASH_ADD_INT(files, filepath_crc32, file_ptr);
+				HASHTABLE_INSERT(files, filepath_crc32, &file);
+				#endif
 
 				#if VERIFY_ALL_FILES
 				File test_result;
@@ -1560,18 +1567,6 @@ int main(int argc, char **argv) {
 	init_d3d11();
 	init_file_table(argv[1]);
 	bc7e_compress_block_init();
-
-	u32 total_num_files = 0;
-	u32 total_hashtable_overhead = 0;
-	for (int expansion = 0; expansion < NUM_EXPANSIONS; expansion++) {
-		for (int pack_type = 0; pack_type < NUM_PACK_TYPES; pack_type++) {
-			total_num_files += HASH_COUNT(all_files[expansion][pack_type]);
-			total_hashtable_overhead += HASH_OVERHEAD(hh, all_files[expansion][pack_type]);
-		}
-	}
-
-	printf("Found %u files in FFXIV filesystem.\n", total_num_files);
-	printf("Total hashtable overhead %u bytes.\n", total_hashtable_overhead);
 
 	File root_exl;
 	expect(get_file("exd/root.exl", &root_exl));

@@ -72,9 +72,6 @@
     <ClCompile Include="generated_src\Items.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="generated_src\Recipes.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="generated_src\CA_Texture.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

@@ -24,6 +24,7 @@
 #include "Array.h"
 #include "defer.h"
 #include "Views.h"
+#include "time.h"
 
 #include "../data/Craft_Job_to_Icon_id.h"
 #include "../data/Craft_Action_to_Icon_id.h"
@@ -33,10 +34,11 @@
 #pragma comment(lib, "d3d11")
 #pragma comment(lib, "d3dcompiler")
 
-#define VERIFY_ALL_FILES 0 // _VERY_ SLOW
-
 #define USE_HD_ICONS 1
 #define DEBUG_WRITE_TEXTURES_TO_BUILD 1
+
+#define VERIFY_ALL_FILES 0 // _VERY_ SLOW
+#define TIME_FILE_TABLE_CREATION 1
 
 #if USE_HD_ICONS
 #define ICON_DIMENSIONS (80)
@@ -56,7 +58,6 @@ u64 atlas_bc7_blocks[ATLAS_DIMENSION * ATLAS_DIMENSION / 8];
 
 static_assert(ATLAS_DIMENSION % 4 == 0, "ATLAS_DIMENSION needs to be a multiple of 4.");
 
-using namespace std;
 using namespace std::filesystem;
 using namespace ispc; 
 
@@ -153,17 +154,13 @@ constexpr u32 crc32_add_char(u32 crc32, char data) {
 	return (crc32 >> 8) ^ crc32_table[(data ^ crc32) & 0xFF];
 }
 
-constexpr u32 crc32_finalize(u32 crc32) {
-	return crc32;
-}
-
 constexpr u32 crc32_compute(ROString data) {
 	u32 result = crc32_init();
 
 	for (int i = 0; i < data.length; i++)
 		result = crc32_add_char(result, data[i]);
 
-	return crc32_finalize(result);
+	return result;
 }
 
 constexpr u32 operator""_crc32(const char *data, size_t length) {
@@ -459,7 +456,16 @@ bool get_file(const char *filepath, File *result = 0) {
 	return get_file(expansion, pack_type, crc32_of_path, result);
 }
 
-void init_file_table(char *base_dir) {
+void init_file_table(const char *base_dir) {
+	#if TIME_FILE_TABLE_CREATION
+	auto start_time = Time::get_time();
+	defer{
+		auto end_time = Time::get_time();
+		auto frequency = Time::get_frequency();
+		printf("File table creation took %gs\n", (end_time - start_time) / (f64)frequency);
+	};
+	#endif
+
 	for (auto &entry : recursive_directory_iterator(base_dir)) {
 		if (!entry.is_regular_file())
 			continue;

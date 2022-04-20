@@ -165,6 +165,7 @@
     <ClInclude Include="src\d3d11_util.h" />
     <ClInclude Include="src\defer.h" />
     <ClInclude Include="src\string.h" />
+    <ClInclude Include="src\time.h" />
     <ClInclude Include="src\types.h" />
     <ClInclude Include="src\Views.h" />
   </ItemGroup>
@@ -180,6 +181,7 @@
     <ClCompile Include="src\d3d11_util.cpp" />
     <ClCompile Include="src\raw_data_importer.cpp" />
     <ClCompile Include="src\string.cpp" />
+    <ClCompile Include="src\time_win32.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Object Include="libs\bc7e\$bc7e.obj" />

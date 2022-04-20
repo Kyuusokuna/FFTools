@@ -7,6 +7,7 @@
 #include <miniz/miniz.h>
 #include <bc7e/$bc7e_ispc.h>
 #include <uthash/uthash.h>
+#include <khash/khash.h>
 #define STB_IMAGE_IMPLEMENTATION
 #define STBI_WINDOWS_UTF8
 #define STBI_MAX_DIMENSIONS 4096

@@ -76,28 +76,28 @@ void error_exit(int code) {
 Byte_View map_file(const char *path) {
 	auto file = CreateFileA(path, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
 	if (file == INVALID_HANDLE_VALUE)
-		return { };
+		return Byte_View(0, 0);
 	defer{ CloseHandle(file); };
 
 	LARGE_INTEGER file_size;
 	if (!GetFileSizeEx(file, &file_size))
-		return { };
+		return Byte_View(0, 0);
 
 	auto mapping = CreateFileMappingA(file, 0, PAGE_READONLY, 0, 0, 0);
 	if (!mapping)
-		return { };
+		return Byte_View(0, 0);
 	defer{ CloseHandle(mapping); };
 
 	auto data = (u8 *)MapViewOfFile(mapping, FILE_MAP_READ, 0, 0, 0);
 	if (!data)
-		return { };
+		return Byte_View(0, 0);
 
 	return Byte_View(data, file_size.QuadPart);
 }
 
 Byte_View map_file(String path) {
 	if (path.length > 4095)
-		return { };
+		return Byte_View(0, 0);
 
 	char buf[4096];
 	snprintf(buf, sizeof(buf), "%.*s", (unsigned int)path.length, path.data);
@@ -382,7 +382,7 @@ bool get_file(Expansion expansion, Pack_Type pack_type, u32 crc32_of_path, File 
 	auto &files = all_files[expansion][pack_type];
 
 	khiter_t k = kh_get(FILE_TABLE, files, crc32_of_path);
-	if (!kh_exist(files, k))
+	if (k == kh_end(files))
 		return false;
 
 	Byte_View data = kh_val(files, k);
@@ -460,6 +460,11 @@ void init_file_table(const char *base_dir) {
 	};
 	#endif
 
+	for(u8 expansion = 0; expansion < NUM_EXPANSIONS; expansion++)
+		for(u8 pack_type = 0; pack_type < NUM_PACK_TYPES; pack_type++)
+			if(!all_files[expansion][pack_type])
+				all_files[expansion][pack_type] = kh_init(FILE_TABLE);
+	
 	for (auto &entry : recursive_directory_iterator(base_dir)) {
 		if (!entry.is_regular_file())
 			continue;
@@ -474,9 +479,6 @@ void init_file_table(const char *base_dir) {
 			expect(sscanf(path.filename().string().c_str(), "%2hhx%2hhx%2hhx", &pack_type, &pack_expansion, &pack_unknown) == 3);
 
 			auto &files = all_files[pack_expansion][pack_type];
-
-			if (!files)
-				files = kh_init(FILE_TABLE);
 
 			auto index_path = path;
 			auto index_data = map_file(path.string().c_str());
@@ -536,7 +538,7 @@ void init_file_table(const char *base_dir) {
 
 				expect(dat_files[file_index].data);
 				expect(offset);
-				
+
 				auto file_data = Byte_View(dat_files[file_index], offset);
 				expect(file_data.length);
 
@@ -545,26 +547,6 @@ void init_file_table(const char *base_dir) {
 				expect(ret == 1);
 
 				kh_val(files, k) = file_data;
-
-
-				#if 0
-				#define HASHTABLE_FIND(table, key, output_ptr) { khiter_t k = kh_get(FILE_TABLE, table, key); if(k != kh_end(table)) output_ptr = &kh_value(table, k); }
-				#define HASHTABLE_INSERT(table, key, value_ptr) { int ret = 0; khiter_t k = kh_put(FILE_TABLE, table, file.key, &ret); expect(ret == 1); kh_value(table, k) = *value_ptr; }
-
-
-				IndexedFile file = {};
-				file.filepath_crc32 = *crc32;
-				file.data = Byte_View(dat_files[file_index], offset);
-				expect(file.data.length);
-
-				HASHTABLE_INSERT(files, filepath_crc32, &file);
-				#endif
-
-				#if VERIFY_ALL_FILES
-				File test_result;
-				auto test = get_file((Expansion)pack_expansion, (Pack_Type)pack_type, crc32, 0);// &test_result);
-				expect(test);
-				#endif
 			}
 		}
 	}
@@ -1568,20 +1550,37 @@ int main(int argc, char **argv) {
 	init_file_table(argv[1]);
 	bc7e_compress_block_init();
 
+	u32 total_num_files = 0;
+	for (int expansion = 0; expansion < NUM_EXPANSIONS; expansion++) {
+		for (int pack_type = 0; pack_type < NUM_PACK_TYPES; pack_type++) {
+			if(all_files[expansion][pack_type])
+				total_num_files += kh_size(all_files[expansion][pack_type]);
+		}
+	}
+	
+	printf("Found %u files\n", total_num_files);
+
+	#if VERIFY_ALL_FILES
+	for (int pack_expansion = 0; pack_expansion < NUM_EXPANSIONS; pack_expansion++) {
+		for (int pack_type = 0; pack_type < NUM_PACK_TYPES; pack_type++) {
+			auto &files = all_files[pack_expansion][pack_type];
+
+			for (auto iter = kh_begin(files); iter != kh_end(files); ++iter) {
+				if (!kh_exist(files, iter))
+					continue;
+
+				auto crc32 = kh_key(files, iter);
+
+				File file = {};
+				expect(get_file((Expansion)pack_expansion, (Pack_Type)pack_type, crc32, &file));
+			}
+		}
+	}
+	#endif
+	
 	File root_exl;
 	expect(get_file("exd/root.exl", &root_exl));
 	auto data_files = parse_root_exl(&root_exl);
-
-	//auto t1 = parse_ex_file("Item");
-
-	#if 0
-	for (auto data_file : data_files) {
-		Data_Table table = {};
-		auto test = parse_ex_file(data_file.name, table);
-		table.free();
-		int k = 0;
-	}
-	#endif
 
 	#define get_data_table_generic(table_name, var_name) Data_Table var_name##s = {}; expect(parse_ex_file(table_name, var_name##s)); expect(var_name##s .localised_tables[Language_Generic].num_rows); defer{ experience_tables.free(); }; auto var_name = var_name##s .localised_tables[Language_Generic];
 

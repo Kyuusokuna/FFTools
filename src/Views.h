@@ -55,6 +55,7 @@ struct Array_View {
 	T *data;
 	u64 count;
 
+	Array_View() : data(0), count(0) { }
 	Array_View(Byte_View source, u64 count) : data((T *)source.data), count(min(count, source.length / sizeof(T))) { }
 	Array_View(Byte_View source, u64 count, u64 offset) : Array_View(Byte_View(source, offset), count) { }
 

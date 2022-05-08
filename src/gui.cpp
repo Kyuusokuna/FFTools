@@ -73,6 +73,18 @@ String base64url_encode(ROString data) {
     return String(output_length, output_buffer);
 }
 
+String make_teamcraft_list_import_string(Array<Item_List::Entry> &item_list) {
+    ImGuiTextBuffer payload_builder = {};
+
+    for (int i = 0; i < item_list.count; i++)
+        payload_builder.appendf("%s%u,null,%u", i == 0 ? "" : ";", item_list[i].item, item_list[i].amount);
+
+    auto payload = ROString(payload_builder.size(), payload_builder.c_str());
+    auto base64_payload = base64url_encode(payload);
+
+    return base64_payload;
+}
+
 float CalcButtonWidth(const char *text) {
     auto &style = ImGui::GetStyle();
     float text_width = ImGui::CalcTextSize(text, 0, true).x;
@@ -1123,10 +1135,13 @@ void materials_panel() {
         ImGui::TextUnformatted("Lists:");
         if(!data.item_lists.count)
             ImGui::TextUnformatted("There are no lists");
-        else if (ImGui::BeginTable("Lists", 3, ImGuiTableFlags_BordersInnerH)) {
+        else if (ImGui::BeginTable("Lists", 4, ImGuiTableFlags_BordersInnerH)) {
             ImGui::TableSetupColumn("Name", 0);
-            ImGui::TableSetupColumn("Open", ImGuiTableColumnFlags_WidthFixed);
+            ImGui::TableSetupColumn("Number of Items", 0);
+            ImGui::TableSetupColumn("Duplicate", ImGuiTableColumnFlags_WidthFixed);
             ImGui::TableSetupColumn("Remove", ImGuiTableColumnFlags_WidthFixed);
+
+            Item_List *list_to_duplicate = 0;
 
             for (int i = 0; i < data.item_lists.count; i++) {
                 ImGui::TableNextRow();
@@ -1134,16 +1149,29 @@ void materials_panel() {
                 auto &list = data.item_lists[i];
 
                 ImGui::TableNextColumn();
-                ImGui::Selectable(list.name, false, ImGuiSelectableFlags_AllowItemOverlap | ImGuiSelectableFlags_SpanAllColumns);
+                if (ImGui::Selectable(list.name, false, ImGuiSelectableFlags_AllowItemOverlap | ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowDoubleClick))
+                    if(ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+                        data.selected_list = &list;
 
                 ImGui::TableNextColumn();
-                if(ImGui::SmallButton("Open"))
-                    data.selected_list = &list;
+                ImGui::Text("[%llu]", list.items.count);
 
                 ImGui::TableNextColumn();
-                ImGui::SmallButton("Remove");
+                if (ImGui::SmallButton("Duplicate")) 
+                    list_to_duplicate = &list;
+
+                ImGui::TableNextColumn();
+                if (ImGui::SmallButton("Remove"))
+                    data.item_lists.remove_ordered(i);
 
                 ImGui::PopID();
+            }
+
+            if (list_to_duplicate) {
+                auto &new_list = data.item_lists.add({});
+                memcpy(new_list.name, list_to_duplicate->name, sizeof(new_list.name));
+                new_list.items = list_to_duplicate->items.copy();
+                new_list.selected_recipes = list_to_duplicate->selected_recipes.copy();
             }
 
             ImGui::EndTable();
@@ -1394,42 +1422,20 @@ void materials_panel() {
         }
 
         if (FFUI_Button("Export List to Teamcraft", false, true)) {
-            ImGuiTextBuffer payload_builder = {};
-            defer{ payload_builder.clear(); };
-            
-            for (int i = 0; i < items.count; i++) {
-                auto &item = items[i];
-                payload_builder.appendf("%s%u,null,%u", i == 0 ? "" : ";", item.item, item.amount);
-            }
-
-            auto payload = ROString(payload_builder.size(), payload_builder.c_str());
-            auto base64_payload = base64url_encode(payload);
-            defer{ free(base64_payload.data); };
+            auto import_string = make_teamcraft_list_import_string(items);
+            defer{ free(import_string.data); };
 
             ImGuiTextBuffer cmd_builder = {};
-            defer{ cmd_builder.clear(); };
-
-            cmd_builder.appendf("start %s%.*s", "https://ffxivteamcraft.com/import/", STR(base64_payload));
+            cmd_builder.appendf("start %s%.*s", "https://ffxivteamcraft.com/import/", STR(import_string));
             system(cmd_builder.c_str());
         }
 
         if (FFUI_Button("Export Raw Materials to Teamcraft", true, true)) {
-            ImGuiTextBuffer payload_builder = {};
-            defer{ payload_builder.clear(); };
-            
-            for (int i = 0; i < raw_materials.count; i++) {
-                auto &material = raw_materials[i];
-                payload_builder.appendf("%s%u,null,%u", i == 0 ? "" : ";", material.item, material.amount);
-            }
-
-            auto payload = ROString(payload_builder.size(), payload_builder.c_str());
-            auto base64_payload = base64url_encode(payload);
-            defer{ free(base64_payload.data); };
+            auto import_string = make_teamcraft_list_import_string(raw_materials);
+            defer{ free(import_string.data); };
 
             ImGuiTextBuffer cmd_builder = {};
-            defer{ cmd_builder.clear(); };
-
-            cmd_builder.appendf("start %s%.*s", "https://ffxivteamcraft.com/import/", STR(base64_payload));
+            cmd_builder.appendf("start %s%.*s", "https://ffxivteamcraft.com/import/", STR(import_string));
             system(cmd_builder.c_str());
         }
 
@@ -1492,7 +1498,7 @@ bool GUI::per_frame() {
 
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0);
 
-    if (ImGui::Begin("Main Panel", 0, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings)) {
+    if (ImGui::Begin("Main Panel", 0, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings)) {
         if (global_data.current_main_panel == Main_Panel_Profile) {
             setup_panel();
         } else if (global_data.current_main_panel == Main_Panel_Crafting_Simulator) {
@@ -1569,6 +1575,7 @@ const char *GUI::init(ID3D11Device *device) {
 
     colors[ImGuiCol_WindowBg] =       ImVec4(0.192f, 0.188f, 0.192f, 1.000f);
     colors[ImGuiCol_MenuBarBg] =      ImVec4(0.192f, 0.192f, 0.192f, 1.000f);
+    colors[ImGuiCol_ScrollbarBg] =    ImVec4(0.192f, 0.192f, 0.192f, 1.000f);
 
     colors[ImGuiCol_FrameBg] =        ImVec4(0.333f, 0.333f, 0.333f, 1.000f);
     colors[ImGuiCol_TextDisabled] =   ImVec4(0.549f, 0.549f, 0.549f, 1.000f);
@@ -1592,10 +1599,10 @@ const char *GUI::init(ID3D11Device *device) {
 
     if (!(global_data.actions_texture = create_texture(device, CA_TEXTURE_WIDTH, CA_TEXTURE_HEIGHT, (DXGI_FORMAT)CA_TEXTURE_FORMAT, CA_TEXTURE_PIXEL_DATA, CA_TEXTURE_WIDTH * 4, CA_TEXTURE_ARRAY_SIZE, CA_TEXTURE_MIP_LEVELS)))
         return "Failed to upload actions texture to GPU.";
-
+    
     ImGuiSettingsHandler profile_handler = {};
     profile_handler.TypeName = "Profile";
-    profile_handler.TypeHash = ImHashStr("Profile");
+    profile_handler.TypeHash = ImHashStr(profile_handler.TypeName);
     profile_handler.ReadOpenFn = [](ImGuiContext *ctx, ImGuiSettingsHandler *handler, const char *name) -> void *{
         for (int i = 0; i < NUM_JOBS; i++)
             if (strcmp(name, Craft_Job_to_string[i]) == 0)
@@ -1605,24 +1612,28 @@ const char *GUI::init(ID3D11Device *device) {
     };
     profile_handler.ReadLineFn = [](ImGuiContext *ctx, ImGuiSettingsHandler *handler, void *entry, const char *line) {
         auto &profile = *(Global_Data::Craft_Setup::Profile *)entry;
-        int32_t i32;
+        s32 i32;
+
         String line_str = { (int64_t)strlen(line), (char *)line };
+        if (!line_str.length)
+            return;
 
         if (sscanf(line, "level=%i", &i32) == 1) { profile.level = i32; } 
         else if (sscanf(line, "craftsmanship=%i", &i32) == 1) { profile.craftsmanship = i32; } 
         else if (sscanf(line, "control=%i", &i32) == 1) { profile.control = i32; } 
         else if (sscanf(line, "cp=%i", &i32) == 1) { profile.cp = i32; } 
-        else if (sscanf(line, "specialist=%i", &i32) == 1) { profile.specialist = i32 ? true : false; }
-        else if (starts_with(line_str, "active_action=")) { 
-            advance(line_str, "active_action="_s.length); 
+        else if (sscanf(line, "specialist=%i", &i32) == 1) { profile.specialist = i32 ? true : false; } 
+        else if (starts_with(line_str, "active_action=")) {
+            advance(line_str, "active_action="_s.length);
             for (int i = 0; i < NUM_ACTIONS; i++) {
                 if (line_str == Craft_Action_to_serialization_string[i]) {
                     profile.active_actions |= (1 << i);
                     return;
                 }
             }
-            printf("WARNING: Unknown action in save file. It will be dropped on the next save.\n");
+            printf("WARNING: Unknown action in save file. It will be dropped on the next save.\nThe actions was '%.*s'.\n", STR(line_str));
         }
+        else { printf("WARNING: Unknown directive in save file [Profile][<unknown>]. It will be dropped on the next save.\nThe line was '%s'.\n", line); }
     };
     profile_handler.WriteAllFn = [](ImGuiContext *ctx, ImGuiSettingsHandler *handler, ImGuiTextBuffer *buf) {
         for (int i = 0; i < NUM_JOBS; i++) {
@@ -1641,6 +1652,62 @@ const char *GUI::init(ID3D11Device *device) {
         }
     };
     context.SettingsHandlers.push_back(profile_handler);
+
+    
+    ImGuiSettingsHandler lists_handler = {};
+    lists_handler.TypeName = "List";
+    lists_handler.TypeHash = ImHashStr(lists_handler.TypeName);
+    lists_handler.ReadOpenFn = [](ImGuiContext *ctx, ImGuiSettingsHandler *handler, const char *name) -> void * {
+        auto length = strlen(name);
+        auto &list = global_data.materials.item_lists.add({});
+        memcpy(list.name, name, ImMin(length, sizeof(list.name) - 1));
+
+        return &list;
+    };
+    lists_handler.ReadLineFn = [](ImGuiContext *ctx, ImGuiSettingsHandler *handler, void *entry, const char *line) {
+        auto &list = *(Item_List *)entry;
+        u32 ui32_1, ui32_2, ui32_3;
+
+        String line_str = { (int64_t)strlen(line), (char *)line };
+        if (!line_str.length)
+            return;
+
+        if (sscanf(line, "item=%u,%u", &ui32_1, &ui32_2) == 2) { list.items.add({ .item = (Item)ui32_1, .amount = ui32_2 }); }
+        else if(sscanf(line, "recipe=%u,%u,%u", &ui32_1, &ui32_2, &ui32_3) == 3) { }
+        else { printf("WARNING: Unknown directive in save file [List][%s]. It will be dropped on the next save.\nThe line was '%s'.\n", list.name, line); }
+    };
+    lists_handler.WriteAllFn = [](ImGuiContext *ctx, ImGuiSettingsHandler *handler, ImGuiTextBuffer *buf) {
+        for (int i = 0; i < global_data.materials.item_lists.count; i++) {
+            auto &list = global_data.materials.item_lists[i];
+
+            buf->appendf("[%s][%s]\n", handler->TypeName, list.name);
+
+            for (int j = 0; j < list.items.count; j++) {
+                auto item = list.items[j];
+                buf->appendf("item=%u,%u\n", item.item, item.amount);
+            }
+
+            buf->append("\n");
+        }
+        #if 0
+        for (int i = 0; i < NUM_JOBS; i++) {
+            auto &data = global_data.craft_setup.job_settings[i];
+            buf->appendf("[%s][%s]\n", handler->TypeName, Craft_Job_to_string[i].data);
+            buf->appendf("level=%d\n", data.level);
+            buf->appendf("craftsmanship=%d\n", data.craftsmanship);
+            buf->appendf("control=%d\n", data.control);
+            buf->appendf("cp=%d\n", data.cp);
+            buf->appendf("specialist=%d\n", data.specialist);
+            for (int i = 0; i < NUM_ACTIONS; i++) {
+                if (data.active_actions & (1 << i))
+                    buf->appendf("active_action=%s\n", Craft_Action_to_serialization_string[i].data);
+            }
+            buf->append("\n");
+        }
+        #endif
+    };
+    context.SettingsHandlers.push_back(lists_handler);
+    
 
     return 0;
 }

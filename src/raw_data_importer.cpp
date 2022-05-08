@@ -38,7 +38,6 @@
 #define DEBUG_WRITE_TEXTURES_TO_BUILD 1
 
 #define VERIFY_ALL_FILES 0 // _VERY_ SLOW
-#define TIME_FILE_TABLE_CREATION 1
 
 #if USE_HD_ICONS
 #define ICON_DIMENSIONS (80)
@@ -449,14 +448,12 @@ bool get_file(const char *filepath, File *result = 0) {
 }
 
 void init_file_table(const char *base_dir) {
-	#if TIME_FILE_TABLE_CREATION
 	auto start_time = Time::get_time();
 	defer{
 		auto end_time = Time::get_time();
 		auto frequency = Time::get_frequency();
 		printf("File table creation took %gs\n", (end_time - start_time) / (f64)frequency);
 	};
-	#endif
 
 	for(u8 expansion = 0; expansion < NUM_EXPANSIONS; expansion++)
 		for(u8 pack_type = 0; pack_type < NUM_PACK_TYPES; pack_type++)
@@ -1723,6 +1720,10 @@ int main(int argc, char **argv) {
 
 	// Items
 	{
+		enum Item_Flag : u8 {
+			Item_Flag_Collectable = (1 << 0),
+		};
+
 		get_data_table_english("Item", item_table);
 
 		expect(item_tables.column_types[11] == Column_Type_STRING);
@@ -1750,7 +1751,7 @@ int main(int argc, char **argv) {
 			auto &placeholder_string = item_to_name_DATA.add({});
 			auto &flags = item_to_flags_DATA.add({});
 
-			flags |= (item_is_collectable << 0);
+			flags |= item_is_collectable ? Item_Flag_Collectable : 0;
 
 			if (item_name.length) {
 				placeholder_string.length = item_name.length;
@@ -1770,8 +1771,13 @@ int main(int argc, char **argv) {
 		make_generated_file(Items, additional_includes);
 
 		write(Items_file_header, "typedef uint16_t Item;\n");
+		write(Items_file_header, "\n");
+		write(Items_file_header, "enum Item_Flag : uint8_t {\n");
+		write(Items_file_header, "    Item_Flag_Collectable = (1 << 0),\n");
+		write(Items_file_header, "};\n");
+		write(Items_file_header, "\n");
 		write_array_compressed_DN(Items_file, "ROString_Literal", "Item_to_name", item_to_name_DATA, "NUM_ITEMS");
-		write_array_compressed_N(Items_file, "uint8_t", "Item_to_flags", item_to_flags_DATA, "NUM_ITEMS");
+		write_array_compressed_N(Items_file, "Item_Flag", "Item_to_flags", item_to_flags_DATA, "NUM_ITEMS");
 		write_array_compressed(Items_file, "char", "Item_to_name_STR_DATA", Array_View<u8>(item_to_name_STR_DATA_buffer, item_to_name_STR_DATA_buffer.length));
 
 
@@ -1802,16 +1808,10 @@ int main(int argc, char **argv) {
 			u16 level_table_index;
 
 			s32 Result;
-			s32 Ingredient0;
-			s32 Ingredient1;
-			s32 Ingredient2;
-			s32 Ingredient3;
-			s32 Ingredient4;
-			s32 Ingredient5;
-			s32 Ingredient6;
-			s32 Ingredient7;
-			s32 Ingredient8;
-			s32 Ingredient9;
+			s32 Ingredients[10];
+
+			u8 ResultAmount;
+			u8 IngredientsAmount[10];
 
 			u16 MaterialQualityFactor;
 			u16 DifficultyFactor;
@@ -1869,17 +1869,30 @@ int main(int argc, char **argv) {
 			Recipe &recipe = recipes.add({});
 			recipe.id = row[0].U32;
 			recipe.level_table_index = row[4].U16;
+
 			recipe.Result = row[5].S32;
-			recipe.Ingredient0 = row[7].S32;
-			recipe.Ingredient1 = row[9].S32;
-			recipe.Ingredient2 = row[11].S32;
-			recipe.Ingredient3 = row[13].S32;
-			recipe.Ingredient4 = row[15].S32;
-			recipe.Ingredient5 = row[17].S32;
-			recipe.Ingredient6 = row[19].S32;
-			recipe.Ingredient7 = row[21].S32;
-			recipe.Ingredient8 = row[23].S32;
-			recipe.Ingredient9 = row[25].S32;
+			recipe.Ingredients[0] = row[7].S32;
+			recipe.Ingredients[1] = row[9].S32;
+			recipe.Ingredients[2] = row[11].S32;
+			recipe.Ingredients[3] = row[13].S32;
+			recipe.Ingredients[4] = row[15].S32;
+			recipe.Ingredients[5] = row[17].S32;
+			recipe.Ingredients[6] = row[19].S32;
+			recipe.Ingredients[7] = row[21].S32;
+			recipe.Ingredients[8] = row[23].S32;
+			recipe.Ingredients[9] = row[25].S32;
+
+			recipe.ResultAmount = row[6].U8;
+			recipe.IngredientsAmount[0] = row[8].U8;
+			recipe.IngredientsAmount[1] = row[10].U8;
+			recipe.IngredientsAmount[2] = row[12].U8;
+			recipe.IngredientsAmount[3] = row[14].U8;
+			recipe.IngredientsAmount[4] = row[16].U8;
+			recipe.IngredientsAmount[5] = row[18].U8;
+			recipe.IngredientsAmount[6] = row[20].U8;
+			recipe.IngredientsAmount[7] = row[22].U8;
+			recipe.IngredientsAmount[8] = row[24].U8;
+			recipe.IngredientsAmount[9] = row[26].U8;
 
 			recipe.MaterialQualityFactor = row[29].U8;
 			recipe.DifficultyFactor = row[30].U16;
@@ -1921,6 +1934,9 @@ int main(int argc, char **argv) {
 		struct Output_Recipe {
 			u16 Result;
 			u16 Ingredients[10];
+
+			u8 Result_amount;
+			u8 Ingredients_amount[10];
 
 			s32 durability;
 			s32 progress;
@@ -1972,17 +1988,14 @@ int main(int argc, char **argv) {
 			auto recipe = find_recipe(id);
 			auto level_table = find_level_table(recipe.level_table_index);
 
+			expect(recipe.Result > 0);
 			result.Result = recipe.Result;
-			result.Ingredients[0] = recipe.Ingredient0;
-			result.Ingredients[1] = recipe.Ingredient1;
-			result.Ingredients[2] = recipe.Ingredient2;
-			result.Ingredients[3] = recipe.Ingredient3;
-			result.Ingredients[4] = recipe.Ingredient4;
-			result.Ingredients[5] = recipe.Ingredient5;
-			result.Ingredients[6] = recipe.Ingredient6;
-			result.Ingredients[7] = recipe.Ingredient7;
-			result.Ingredients[8] = recipe.Ingredient8;
-			result.Ingredients[9] = recipe.Ingredient9;
+			for (int i = 0; i < 10; i++)
+				result.Ingredients[i] = recipe.Ingredients[i] > 0 ? recipe.Ingredients[i] : 0;
+
+			result.Result_amount = recipe.ResultAmount;
+			for (int i = 0; i < 10; i++)
+				result.Ingredients_amount[i] = recipe.IngredientsAmount[i];
 
 			result.durability = level_table.Durability * recipe.DurabilityFactor / 100;
 			result.progress = level_table.Difficulty * recipe.DifficultyFactor / 100;
@@ -2040,6 +2053,9 @@ int main(int argc, char **argv) {
 		write(Recipes_file_header, "typedef struct {\n");
 		write(Recipes_file_header, "    Item result;\n");
 		write(Recipes_file_header, "    Item ingredients[10];\n");
+		write(Recipes_file_header, "    \n");
+		write(Recipes_file_header, "    uint8_t result_amount;\n");
+		write(Recipes_file_header, "    uint8_t ingredients_amount[10];\n");
 		write(Recipes_file_header, "    \n");
 		write(Recipes_file_header, "    int32_t durability;\n");
 		write(Recipes_file_header, "    int32_t progress;\n");

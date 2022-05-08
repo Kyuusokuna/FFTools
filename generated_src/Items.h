@@ -7,9 +7,14 @@ extern "C" {
 #endif
 
 typedef uint16_t Item;
+
+enum Item_Flag : uint8_t {
+    Item_Flag_Collectable = (1 << 0),
+};
+
 #define NUM_ITEMS (38001)
 extern ROString_Literal Item_to_name[NUM_ITEMS];
-extern uint8_t Item_to_flags[NUM_ITEMS];
+extern Item_Flag Item_to_flags[NUM_ITEMS];
 
 extern bool Items_decompress();
 

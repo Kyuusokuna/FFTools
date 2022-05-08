@@ -1,6 +1,7 @@
 #pragma once
 #include <stdatomic.h>
 #include <d3d11.h>
+#include "Array.h"
 #include "types.h"
 #include "Craft_Actions.h"
 #include "../generated_src/Recipes.h"
@@ -9,12 +10,30 @@
 
 #define MAX_SIM_ACTIONS 100
 
+struct Item_List {
+    struct Entry {
+        Item item;
+        u32 amount;
+    };
+
+    struct Selected_Recipe {
+        Item item;
+        Recipe *recipe;
+    };
+
+    char name[64];
+
+    Array<Entry> items = {};
+    Array<Selected_Recipe> selected_recipes = {};
+};
+
 enum Main_Panel {
     Main_Panel_Profile,
     Main_Panel_Crafting_Simulator,
     Main_Panel_Crafting_Solver,
     Main_Panel_Materials,
 };
+
 extern struct Global_Data {
     Main_Panel current_main_panel = Main_Panel_Profile;
 
@@ -52,7 +71,8 @@ extern struct Global_Data {
     } solver;
 
     struct {
-        Recipe *selected_recipe = 0;
+        Array<Item_List> item_lists;
+        Item_List *selected_list;
     } materials;
 
     int32_t lines_per_macro = 13;

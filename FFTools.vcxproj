@@ -356,6 +356,7 @@
     <ClInclude Include="generated_src\Experience.h" />
     <ClInclude Include="generated_src\Items.h" />
     <ClInclude Include="generated_src\Recipes.h" />
+    <ClInclude Include="src\Array.h" />
     <ClInclude Include="src\crafting_simulator.h" />
     <ClInclude Include="src\crafting_solver3.h" />
     <ClInclude Include="src\Craft_Actions.h" />
@@ -388,6 +389,7 @@
     <Text Include="src\imgui\LICENSE.txt" />
   </ItemGroup>
   <ItemGroup>
+    <Natvis Include="src\Array.natvis" />
     <Natvis Include="src\string.natvis" />
   </ItemGroup>
   <ItemGroup>

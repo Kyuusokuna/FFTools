@@ -14,6 +14,9 @@ typedef struct {
     Item result;
     Item ingredients[10];
     
+    uint8_t result_amount;
+    uint8_t ingredients_amount[10];
+    
     int32_t durability;
     int32_t progress;
     int32_t quality;

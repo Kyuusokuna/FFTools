@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <initializer_list>
+#include <algorithm>
 
 template<typename T, size_t capacity_increase = 16> struct Array {
 	static_assert(capacity_increase > 0, "Array capacity_increase needs to be > 0");
@@ -11,8 +12,15 @@ template<typename T, size_t capacity_increase = 16> struct Array {
 	T *values = 0;
 
 	Array() { }
-
 	Array(std::initializer_list<T> arr) : Array() { for (auto t : arr) add(t); }
+
+	T *begin() {
+		return values;
+	}
+
+	T *end() {
+		return values + count;
+	}
 
 	T &operator[](size_t index) {
 		assert(index < count);
@@ -56,6 +64,17 @@ template<typename T, size_t capacity_increase = 16> struct Array {
 			values[index] = values[count];
 	}
 
+	void remove_ordered(size_t index) {
+		assert(index < count);
+
+		count--;
+
+		if (count) {
+			for (int i = index; i < count; i++)
+				values[i] = values[i + 1];
+		}
+	}
+
 	void clear() {
 		count = 0;
 	}
@@ -67,14 +86,6 @@ template<typename T, size_t capacity_increase = 16> struct Array {
 		if (values)
 			free(values);
 		values = 0;
-	}
-
-	T *begin() {
-		return values;
-	}
-
-	T *end() {
-		return values + count;
 	}
 
 	T *first() {
@@ -93,5 +104,18 @@ template<typename T, size_t capacity_increase = 16> struct Array {
 		for (size_t i = 0; i < count; i++)
 			result.add(values[i]);
 		return result;
+	}
+
+	void sort(bool comparison_function(const T &a, const T &b)) {
+		std::stable_sort(begin(), end(), comparison_function);
+	}
+
+	template<typename Predicate>
+	bool Any(Predicate &&predicate) {
+		for (auto &e : *this)
+			if (predicate(e))
+				return true;
+
+		return false;
 	}
 };

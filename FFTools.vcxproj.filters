@@ -188,12 +188,16 @@
     <ClInclude Include="generated_src\Collectables.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\Array.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Text Include="src\imgui\LICENSE.txt" />
   </ItemGroup>
   <ItemGroup>
     <Natvis Include="src\string.natvis" />
+    <Natvis Include="src\Array.natvis" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="data\app.rc">

@@ -10,6 +10,7 @@
 #include "global_data.h"
 #include "crafting_solver3.h"
 #include "time.h"
+#include "defer.h"
 #include "../generated_src/compressed_data.h"
 
 #define MAX_NUM_SOLVER_THREADS 64U
@@ -38,6 +39,38 @@ void copy_actions_to_clipboard_macro(Craft_Action *actions, s32 num_actions) {
     ptr += snprintf(ptr, 4096 - (ptr - buf), "/echo Craft finished <se.1>");
 
     ImGui::SetClipboardText(buf);
+}
+
+String base64url_encode(ROString data) {
+    constexpr char character_table[65] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+
+    auto output_length = ((data.length - 1) / 3 + 1) * 4 + 1;
+    char *output_buffer = (char *)calloc(output_length, 1);
+
+    auto num_full_input_blocks = data.length / 3;
+    for (int i = 0; i < num_full_input_blocks; i++) {
+        output_buffer[i * 4 + 0] = character_table[(data[i * 3 + 0] >> 2)];
+        output_buffer[i * 4 + 1] = character_table[((data[i * 3 + 0] & 0x03) << 4) | (data[i * 3 + 1] >> 4)];
+        output_buffer[i * 4 + 2] = character_table[((data[i * 3 + 1] & 0x0F) << 2) | (data[i * 3 + 2] >> 6)];
+        output_buffer[i * 4 + 3] = character_table[(data[i * 3 + 2] & 0x3F)];
+    }
+
+    auto num_partial_block_bytes = data.length % 3;
+    if (num_partial_block_bytes) {
+        const int i = num_full_input_blocks;
+
+        output_buffer[i * 4 + 0] = character_table[(data[i * 3 + 0] >> 2)];
+        output_buffer[i * 4 + 1] = character_table[((data[i * 3 + 0] & 0x03) << 4) | (data[i * 3 + 1] >> 4)];
+
+        if (num_partial_block_bytes == 2)
+            output_buffer[i * 4 + 2] = character_table[((data[i * 3 + 1] & 0x0F) << 2)];
+        else
+            output_buffer[i * 4 + 2] = '=';
+
+        output_buffer[i * 4 + 3] = '=';
+    }
+
+    return String(output_length, output_buffer);
 }
 
 float CalcButtonWidth(const char *text) {
@@ -476,11 +509,12 @@ bool recipe_selector(Craft_Job job, Recipe *&selected_recipe) {
                 auto &recipe = Recipes[job][i];
                 auto &result = recipe.result;
                 auto &result_name = Item_to_name[result];
-                if (contains_ignoring_case(result_name, { (int64_t)strlen(recipe_search), recipe_search }))
+                if (contains_ignoring_case(result_name, { (int64_t)strlen(recipe_search), recipe_search })) {
                     if (ImGui::Selectable(result_name.data, false)) {
                         selected_recipe = (Recipe *)&recipe;
                         has_selected_new_recipe = true;
                     }
+                }
             }
             ImGui::EndListBox();
         }
@@ -1011,19 +1045,420 @@ void solver_panel() {
     }
 }
 
+struct All_Recipes_Iterator {
+    struct Indexed_Recipe {
+        Craft_Job job;
+        u32 index;
+    };
+
+    u8 job = 0;
+    u16 index = 0;
+
+    All_Recipes_Iterator() : job(0), index(0) { }
+    All_Recipes_Iterator(u8 job, u16 index) : job(job), index(index) { }
+
+    All_Recipes_Iterator begin() {
+        return All_Recipes_Iterator(0, 0);
+    }
+
+    All_Recipes_Iterator end() {
+        return All_Recipes_Iterator(NUM_JOBS, 0);
+    }
+
+    All_Recipes_Iterator &operator++() {
+        index++;
+        if (index >= NUM_RECIPES[job]) {
+            index = 0;
+            job++;
+        }
+
+        return *this;
+    }
+
+    bool operator!=(All_Recipes_Iterator b) {
+        return this->job != b.job || this->index != b.index;
+    }
+
+    Indexed_Recipe operator*() {
+        return Indexed_Recipe{ .job = (Craft_Job)job, .index = index };
+    }
+};
+
+#if 0
+enum Acquisition_Method : u8 {
+    Acquisition_Method_Unknown = 0,
+    Acquisition_Method_Gather = 1,
+    Acquisition_Method_Craft = 2,
+    Acquisition_Method_Monster_drop = 3,
+    Acquisition_Method_Dungeon_drop = 4,
+    Acquisition_Method_Gil = 5,
+    Acquisition_Method_Gatherers_Scrip = 6,
+    Acquisition_Method_Crafters_Scrip = 7,
+
+
+    NUM_ACQUISITION_METHODS,
+};
+#endif
+
 void materials_panel() {
+    const u32 step = 1;
+    const u32 fast_step = 10;
+
     auto &data = global_data.materials;
 
-    if (recipe_selector_all_jobs(data.selected_recipe)) {
+    if (!data.selected_list) {
+        static char list_name_buf[64] = "";
+        static_assert(sizeof(list_name_buf) == sizeof(Item_List::name), "sizeof(list_name_buf) == sizeof()");
 
-    }
-    if (!data.selected_recipe)
+        //SetNextItemMaxWidth(global_data.input_str_width);
+        ImGui::InputTextWithHint("##new_list_input", "List name", list_name_buf, sizeof(list_name_buf), ImGuiInputTextFlags_AutoSelectAll);
+        ImGui::SameLine();
+        ImGui::BeginDisabled(strnlen(list_name_buf, sizeof(list_name_buf)) == 0);
+        if (ImGui::Button("Add")) {
+            auto &new_list = data.item_lists.add({});
+            memcpy(new_list.name, list_name_buf, sizeof(new_list.name));
+        }
+        ImGui::EndDisabled();
+
+        ImGui::TextUnformatted("Lists:");
+        if(!data.item_lists.count)
+            ImGui::TextUnformatted("There are no lists");
+        else if (ImGui::BeginTable("Lists", 3, ImGuiTableFlags_BordersInnerH)) {
+            ImGui::TableSetupColumn("Name", 0);
+            ImGui::TableSetupColumn("Open", ImGuiTableColumnFlags_WidthFixed);
+            ImGui::TableSetupColumn("Remove", ImGuiTableColumnFlags_WidthFixed);
+
+            for (int i = 0; i < data.item_lists.count; i++) {
+                ImGui::TableNextRow();
+                ImGui::PushID(i);
+                auto &list = data.item_lists[i];
+
+                ImGui::TableNextColumn();
+                ImGui::Selectable(list.name, false, ImGuiSelectableFlags_AllowItemOverlap | ImGuiSelectableFlags_SpanAllColumns);
+
+                ImGui::TableNextColumn();
+                if(ImGui::SmallButton("Open"))
+                    data.selected_list = &list;
+
+                ImGui::TableNextColumn();
+                ImGui::SmallButton("Remove");
+
+                ImGui::PopID();
+            }
+
+            ImGui::EndTable();
+        }
+
         return;
+    }
 
-    auto &recipe = data.selected_recipe;
+    auto list = data.selected_list;
+    auto &items = list->items;
+    auto &selected_recipes = list->selected_recipes;
+
+    if (ImGui::Button("Back")) {
+        data.selected_list = 0;
+        return;
+    }
+
+    ImGui::SameLine();
+    ImGui::TextUnformatted(list->name);
+
+    static bool first_call = true;
+    defer{ first_call = false; };
+
+    static Array<Item> filtered_items = {};
+    static char item_search[64] = "";
+    SetNextItemMaxWidth(global_data.input_str_width);
+    if (ImGui::InputTextWithHint("##item_search", "Item search", item_search, sizeof(item_search)) || first_call) {
+        filtered_items.clear();
+        ROString search_string = ROString(strlen(item_search), item_search);
+
+        for (Item i = 1; i < NUM_ITEMS; i++)
+            if (Item_to_name[i].length && contains_ignoring_case(Item_to_name[i], search_string))
+                filtered_items.add(i);
+    }
+
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.254f, 0.250f, 0.254f, 1.000f));
+    SetNextItemMaxWidth(global_data.input_str_width);
+    if (ImGui::BeginListBox("##item_selector", ImVec2(0, 0))) {
+        ImGuiListClipper clipper;
+        clipper.Begin(filtered_items.count);
+
+        while (clipper.Step()) {
+            for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++) {
+                auto &item = filtered_items[i];
+                auto &item_name = Item_to_name[item];
+
+                ImGuiSelectableFlags selectable_flags = 0;
+                if (items.Any([=](auto &x) { return x.item == item; }))
+                    selectable_flags |= ImGuiSelectableFlags_Disabled;
+
+                if (ImGui::Selectable(item_name.data, false, selectable_flags)) {
+                    auto &added_item = items.add({});
+                    added_item.item = item;
+                    added_item.amount = 1;
+                }
+            }
+        }
+
+        ImGui::EndListBox();
+    }
+    ImGui::PopStyleColor();
+
+    ImGui::TextUnformatted("List:");
+
+    if (!items.count) {
+        ImGui::TextUnformatted("No items in list.");
+    } else {
+        if (ImGui::BeginTable("Items", 3, ImGuiTableFlags_Borders)) {
+            ImGui::TableSetupColumn("Name", 0);
+            ImGui::TableSetupColumn("Amount", 0);
+            ImGui::TableSetupColumn("Clear", ImGuiTableColumnFlags_WidthFixed);
+            //ImGui::TableHeadersRow();
+
+            ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
+            ImGui::TableNextColumn();
+            ImGui::TableHeader(ImGui::TableGetColumnName(0));
+
+            ImGui::TableNextColumn();
+            ImGui::TableHeader(ImGui::TableGetColumnName(1));
+
+            ImGui::TableNextColumn();
+            if (ImGui::SmallButton("Clear"))
+                items.clear();
+
+            for (int i = 0; i < items.count; i++) {
+                ImGui::PushID(i);
+                auto &list_entry = items[i];
+
+                ImGui::TableNextColumn();
+                ImGui::AlignTextToFramePadding();
+                ImGui::TextUnformatted(Item_to_name[list_entry.item]);
+
+                ImGui::TableNextColumn();
+                ImGui::SetNextItemWidth(-1);
+                ImGui::InputScalar("##amount", ImGuiDataType_U32, &list_entry.amount, &step, &fast_step);
+                if (!list_entry.amount)
+                    items.remove_ordered(i);
+
+                ImGui::TableNextColumn();
+                if (ImGui::Button("Remove"))
+                    items.remove(i);
+
+                ImGui::PopID();
+            }
+
+            ImGui::EndTable();
+        }
+
+        Array<Item_List::Entry> raw_materials = {};
+        defer{ raw_materials.reset(); };
+
+        auto add_raw_material = [&](Item item, u32 amount) {
+            for (auto material : raw_materials) {
+                if (material.item == item) {
+                    material.amount += amount;
+                    return;
+                }
+            }
+                    
+            raw_materials.add({ .item = item, .amount = amount });
+        };
+
+        auto find_acquisition_recipe = [&](Item item) -> Item_List::Selected_Recipe *{
+            for (auto &e : selected_recipes)
+                if (e.item == item)
+                    return &e;
+
+            return 0;
+        };
+
+        auto find_or_add_acquisition_recipe = [&](Item item) -> Item_List::Selected_Recipe *{
+            auto recipe = find_acquisition_recipe(item);
+            if (recipe)
+                return recipe;
+
+            return &selected_recipes.add({ .item = item });
+        };
+
+        auto recursively_add_materials = [&](auto &self, Item item, u32 amount) {
+            auto recipe = find_or_add_acquisition_recipe(item)->recipe;
+            if (!recipe) {
+                add_raw_material(item, amount);
+                return;
+            }
+
+            auto num_recipes_needed = (amount - 1) / recipe->result_amount + 1;
+
+            for (int i = 0; i < 10; i++) {
+                auto &ingredient = recipe->ingredients[i];
+                auto &ingredient_amount = recipe->ingredients_amount[i];
+
+                if (ingredient)
+                    self(self, ingredient, ingredient_amount * num_recipes_needed);
+            }
+        };
+
+        for (auto item : items)
+            recursively_add_materials(recursively_add_materials, item.item, item.amount);
+        
+        ImGui::TextUnformatted("Acquisition methods:");
+
+        selected_recipes.sort([](auto a, auto b) { return a.item < b.item; });
+        for (auto &acquisition : selected_recipes) {
+            Recipe *possible_recipes[NUM_JOBS] = {};
+            u32 num_acquisition_sources = 0;
+
+            for (auto recipe : All_Recipes_Iterator()) {
+                if (Recipes[recipe.job][recipe.index].result == acquisition.item) {
+                    assert(!possible_recipes[recipe.job]);
+                    possible_recipes[recipe.job] = &Recipes[recipe.job][recipe.index];
+                    num_acquisition_sources++;
+                }
+            }
+
+            if (!num_acquisition_sources)
+                continue;
+
+            if (num_acquisition_sources == 1) {
+                for(auto recipe : possible_recipes)
+                    if(recipe)
+                        acquisition.recipe = recipe;
+
+                continue;
+            }
+
+            bool has_selected_source = !!acquisition.recipe;
+            if (!has_selected_source) {
+                ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(1.00f, 0.86f, 0.00f, 0.52f));
+                ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(1.00f, 0.89f, 0.22f, 0.64f));
+            }
+
+            ImGui::PushID(acquisition.item);
+            if (ImGui::CollapsingHeader(Item_to_name[acquisition.item])) {
+                if (ImGui::BeginTable("##acquisition_methods", 4)) {
+                    for (int job = 0; job < NUM_JOBS; job++) {
+                        auto recipe = possible_recipes[job];
+
+                        ImGui::PushID(job);
+                        ImGui::TableNextColumn();
+                        if(ImGui::Selectable(Craft_Job_to_short_string[job], recipe && acquisition.recipe == recipe, recipe ? 0: ImGuiSelectableFlags_Disabled))
+                            acquisition.recipe = recipe;
+
+                        ImGui::PopID();
+                    }
+
+                    ImGui::EndTable();
+                }
+
+                ImGui::BeginDisabled(!acquisition.recipe);
+                if (ImGui::SmallButton("Remove Selection"))
+                    acquisition.recipe = 0;
+                ImGui::EndDisabled();
+            }
+            ImGui::PopID();
+
+            if (!has_selected_source)
+                ImGui::PopStyleColor(2);
+        }
+
+        for (int i = 0; i < selected_recipes.count; i++)
+            if (!selected_recipes[i].recipe)
+                selected_recipes.remove(i);
 
 
+        raw_materials.sort([](auto a, auto b) { return a.item < b.item; });
 
+        ImGui::TextUnformatted("Raw Materials:");
+        if (ImGui::BeginTable("Resources", 2, ImGuiTableFlags_Borders)) {
+            ImGui::TableSetupColumn("Name", 0);
+            ImGui::TableSetupColumn("Amount", 0);
+            ImGui::TableHeadersRow();
+
+            for (int i = 0; i < raw_materials.count; i++) {
+                ImGui::PushID(i);
+                auto &material = raw_materials[i];
+
+                ImGui::TableNextColumn();
+                ImGui::AlignTextToFramePadding();
+                ImGui::TextUnformatted(Item_to_name[material.item]);
+
+                ImGui::TableNextColumn();
+                ImGui::Text("%u", material.amount);
+
+                ImGui::PopID();
+            }
+
+            ImGui::EndTable();
+        }
+
+        if (FFUI_Button("Export List to Teamcraft", false, true)) {
+            ImGuiTextBuffer payload_builder = {};
+            defer{ payload_builder.clear(); };
+            
+            for (int i = 0; i < items.count; i++) {
+                auto &item = items[i];
+                payload_builder.appendf("%s%u,null,%u", i == 0 ? "" : ";", item.item, item.amount);
+            }
+
+            auto payload = ROString(payload_builder.size(), payload_builder.c_str());
+            auto base64_payload = base64url_encode(payload);
+            defer{ free(base64_payload.data); };
+
+            ImGuiTextBuffer cmd_builder = {};
+            defer{ cmd_builder.clear(); };
+
+            cmd_builder.appendf("start %s%.*s", "https://ffxivteamcraft.com/import/", STR(base64_payload));
+            system(cmd_builder.c_str());
+        }
+
+        if (FFUI_Button("Export Raw Materials to Teamcraft", true, true)) {
+            ImGuiTextBuffer payload_builder = {};
+            defer{ payload_builder.clear(); };
+            
+            for (int i = 0; i < raw_materials.count; i++) {
+                auto &material = raw_materials[i];
+                payload_builder.appendf("%s%u,null,%u", i == 0 ? "" : ";", material.item, material.amount);
+            }
+
+            auto payload = ROString(payload_builder.size(), payload_builder.c_str());
+            auto base64_payload = base64url_encode(payload);
+            defer{ free(base64_payload.data); };
+
+            ImGuiTextBuffer cmd_builder = {};
+            defer{ cmd_builder.clear(); };
+
+            cmd_builder.appendf("start %s%.*s", "https://ffxivteamcraft.com/import/", STR(base64_payload));
+            system(cmd_builder.c_str());
+        }
+
+        #if 0
+        auto recursively_add_to_crafting_tree = [&](auto &self, Item &item, u32 amount) -> void {
+            auto acquisition_recipe = find_acquisition_recipe(item);
+            auto recipe = acquisition_recipe->recipe;
+
+            if (ImGui::TreeNodeEx(&Item_to_name[item], recipe ? ImGuiTreeNodeFlags_DefaultOpen : ImGuiTreeNodeFlags_Leaf, "%.*s", STR(Item_to_name[item]))) {
+                if (recipe) {
+                    for(int i = 0; i < 10; i++)
+                        if(recipe->ingredients[i])
+                            self(self, recipe->ingredients[i], recipe->ingredients_amount[i]);
+                }
+
+                ImGui::TreePop();
+            }
+        };
+
+        // Relevant info for tree improvements/styling: https://github.com/ocornut/imgui/issues/282
+        //ImGui::TextUnformatted("Full Tree:");
+        if (ImGui::TreeNodeEx("Crafting Tree", ImGuiTreeNodeFlags_DefaultOpen)) {
+            for (auto &item : item_list)
+                recursively_add_to_crafting_tree(recursively_add_to_crafting_tree, item.item, item.amount);
+
+            ImGui::TreePop();
+        }
+        #endif
+    }
 }
 
 bool GUI::per_frame() {

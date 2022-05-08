@@ -521,6 +521,7 @@ bool recipe_selector(Craft_Job job, Recipe *&selected_recipe) {
                 auto &recipe = Recipes[job][i];
                 auto &result = recipe.result;
                 auto &result_name = Item_to_name[result];
+
                 if (contains_ignoring_case(result_name, { (int64_t)strlen(recipe_search), recipe_search })) {
                     if (ImGui::Selectable(result_name.data, false)) {
                         selected_recipe = (Recipe *)&recipe;
@@ -1112,6 +1113,24 @@ enum Acquisition_Method : u8 {
 };
 #endif
 
+void filter_item_list(Array<Item> &filtered_items, ROString search_string, bool only_craftable, bool only_collectable) {
+    filtered_items.clear();
+
+    for (Item i = 1; i < NUM_ITEMS; i++) {
+        auto &name = Item_to_name[i];
+        auto &flags = Item_to_flags[i];
+
+        if (only_craftable && !(flags & Item_Flag_Craftable))
+            continue;
+
+        if (only_collectable && !(flags & Item_Flag_Collectable))
+            continue;
+
+        if (name.length && contains_ignoring_case(name, search_string))
+            filtered_items.add(i);
+    }
+}
+
 void lists_panel() {
     const u32 step = 1;
     const u32 fast_step = 10;
@@ -1120,7 +1139,7 @@ void lists_panel() {
 
     if (!data.selected_list) {
         static char list_name_buf[64] = "";
-        static_assert(sizeof(list_name_buf) == sizeof(Item_List::name), "sizeof(list_name_buf) == sizeof()");
+        static_assert(sizeof(list_name_buf) == sizeof(Item_List::name), "sizeof(list_name_buf) == sizeof(Item_List::name)");
 
         //SetNextItemMaxWidth(global_data.input_str_width);
         ImGui::InputTextWithHint("##new_list_input", "List name", list_name_buf, sizeof(list_name_buf), ImGuiInputTextFlags_AutoSelectAll);
@@ -1195,47 +1214,50 @@ void lists_panel() {
     ImGui::SameLine();
     ImGui::TextUnformatted(list->name);
 
-    static bool first_call = true;
-    defer{ first_call = false; };
-
-    static Array<Item> filtered_items = {};
+    static Array<Item> filtered_items = []() { Array<Item> filtered_items = {}; filter_item_list(filtered_items, "", false, false); return filtered_items; }();
     static char item_search[64] = "";
-    SetNextItemMaxWidth(global_data.input_str_width);
-    if (ImGui::InputTextWithHint("##item_search", "Item search", item_search, sizeof(item_search)) || first_call) {
-        filtered_items.clear();
-        ROString search_string = ROString(strlen(item_search), item_search);
+    static bool only_craftables = false;
+    static bool only_collectables = false;
 
-        for (Item i = 1; i < NUM_ITEMS; i++)
-            if (Item_to_name[i].length && contains_ignoring_case(Item_to_name[i], search_string))
-                filtered_items.add(i);
-    }
 
-    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.254f, 0.250f, 0.254f, 1.000f));
-    SetNextItemMaxWidth(global_data.input_str_width);
-    if (ImGui::BeginListBox("##item_selector", ImVec2(0, 0))) {
-        ImGuiListClipper clipper;
-        clipper.Begin(filtered_items.count);
+    if (ImGui::CollapsingHeader("Add Item")) {
+        if(ImGui::Checkbox("Only Craftables", &only_craftables))
+            filter_item_list(filtered_items, ROString(strlen(item_search), item_search), only_craftables, only_collectables);
 
-        while (clipper.Step()) {
-            for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++) {
-                auto &item = filtered_items[i];
-                auto &item_name = Item_to_name[item];
+        if(ImGui::Checkbox("Only Collectables", &only_collectables))
+            filter_item_list(filtered_items, ROString(strlen(item_search), item_search), only_craftables, only_collectables);
 
-                ImGuiSelectableFlags selectable_flags = 0;
-                if (items.Any([=](auto &x) { return x.item == item; }))
-                    selectable_flags |= ImGuiSelectableFlags_Disabled;
+        SetNextItemMaxWidth(global_data.input_str_width);
+        if (ImGui::InputTextWithHint("##item_search", "Item search", item_search, sizeof(item_search)))
+            filter_item_list(filtered_items, ROString(strlen(item_search), item_search), only_craftables, only_collectables);
 
-                if (ImGui::Selectable(item_name.data, false, selectable_flags)) {
-                    auto &added_item = items.add({});
-                    added_item.item = item;
-                    added_item.amount = 1;
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.254f, 0.250f, 0.254f, 1.000f));
+        SetNextItemMaxWidth(global_data.input_str_width);
+        if (ImGui::BeginListBox("##item_selector", ImVec2(0, 0))) {
+            ImGuiListClipper clipper;
+            clipper.Begin(filtered_items.count);
+
+            while (clipper.Step()) {
+                for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++) {
+                    auto &item = filtered_items[i];
+                    auto &item_name = Item_to_name[item];
+
+                    ImGuiSelectableFlags selectable_flags = 0;
+                    if (items.Any([=](auto &x) { return x.item == item; }))
+                        selectable_flags |= ImGuiSelectableFlags_Disabled;
+
+                    if (ImGui::Selectable(item_name.data, false, selectable_flags)) {
+                        auto &added_item = items.add({});
+                        added_item.item = item;
+                        added_item.amount = 1;
+                    }
                 }
             }
-        }
 
-        ImGui::EndListBox();
+            ImGui::EndListBox();
+        }
+        ImGui::PopStyleColor();
     }
-    ImGui::PopStyleColor();
 
     ImGui::TextUnformatted("List:");
 
@@ -1246,7 +1268,6 @@ void lists_panel() {
             ImGui::TableSetupColumn("Name", 0);
             ImGui::TableSetupColumn("Amount", 0);
             ImGui::TableSetupColumn("Clear", ImGuiTableColumnFlags_WidthFixed);
-            //ImGui::TableHeadersRow();
 
             ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
             ImGui::TableNextColumn();

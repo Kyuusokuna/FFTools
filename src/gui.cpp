@@ -1112,11 +1112,11 @@ enum Acquisition_Method : u8 {
 };
 #endif
 
-void materials_panel() {
+void lists_panel() {
     const u32 step = 1;
     const u32 fast_step = 10;
 
-    auto &data = global_data.materials;
+    auto &data = global_data.lists;
 
     if (!data.selected_list) {
         static char list_name_buf[64] = "";
@@ -1161,8 +1161,11 @@ void materials_panel() {
                     list_to_duplicate = &list;
 
                 ImGui::TableNextColumn();
-                if (ImGui::SmallButton("Remove"))
+                if (ImGui::SmallButton("Remove")) {
+                    data.item_lists[i].items.reset();
+                    data.item_lists[i].selected_recipes.reset();
                     data.item_lists.remove_ordered(i);
+                }
 
                 ImGui::PopID();
             }
@@ -1486,7 +1489,7 @@ bool GUI::per_frame() {
         if (AlignedMenuItem("Profile", current_main_panel == Main_Panel_Profile)) current_main_panel = Main_Panel_Profile;
         if (AlignedMenuItem("Simulator", current_main_panel == Main_Panel_Crafting_Simulator)) current_main_panel = Main_Panel_Crafting_Simulator;
         if (AlignedMenuItem("Solver", current_main_panel == Main_Panel_Crafting_Solver)) current_main_panel = Main_Panel_Crafting_Solver;
-        if (AlignedMenuItem("Materials", current_main_panel == Main_Panel_Materials)) current_main_panel = Main_Panel_Materials;
+        if (AlignedMenuItem("Lists", current_main_panel == Main_Panel_Lists)) current_main_panel = Main_Panel_Lists;
         ImGui::PopStyleColor(3);
 
         ImGui::EndMainMenuBar();
@@ -1505,8 +1508,8 @@ bool GUI::per_frame() {
             simulator_panel();
         } else if (global_data.current_main_panel == Main_Panel_Crafting_Solver) {
             solver_panel();
-        } else if (global_data.current_main_panel == Main_Panel_Materials) {
-            materials_panel();
+        } else if (global_data.current_main_panel == Main_Panel_Lists) {
+            lists_panel();
         }
 
     } ImGui::End();
@@ -1659,7 +1662,7 @@ const char *GUI::init(ID3D11Device *device) {
     lists_handler.TypeHash = ImHashStr(lists_handler.TypeName);
     lists_handler.ReadOpenFn = [](ImGuiContext *ctx, ImGuiSettingsHandler *handler, const char *name) -> void * {
         auto length = strlen(name);
-        auto &list = global_data.materials.item_lists.add({});
+        auto &list = global_data.lists.item_lists.add({});
         memcpy(list.name, name, ImMin(length, sizeof(list.name) - 1));
 
         return &list;
@@ -1677,8 +1680,8 @@ const char *GUI::init(ID3D11Device *device) {
         else { printf("WARNING: Unknown directive in save file [List][%s]. It will be dropped on the next save.\nThe line was '%s'.\n", list.name, line); }
     };
     lists_handler.WriteAllFn = [](ImGuiContext *ctx, ImGuiSettingsHandler *handler, ImGuiTextBuffer *buf) {
-        for (int i = 0; i < global_data.materials.item_lists.count; i++) {
-            auto &list = global_data.materials.item_lists[i];
+        for (int i = 0; i < global_data.lists.item_lists.count; i++) {
+            auto &list = global_data.lists.item_lists[i];
 
             buf->appendf("[%s][%s]\n", handler->TypeName, list.name);
 

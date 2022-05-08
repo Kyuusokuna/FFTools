@@ -27,6 +27,8 @@ typedef struct {
     uint8_t quality_modifier;
     
     int8_t level;
+    
+    uint32_t id;
 } Recipe;
 
 extern Recipe Recipes[NUM_JOBS][MAX_NUM_RECIPES];

@@ -1694,7 +1694,6 @@ int main(int argc, char **argv) {
 
 		};
 
-
 		ROString additional_includes[] = { };
 		make_generated_file(Collectables, additional_includes);
 
@@ -1718,93 +1717,12 @@ int main(int argc, char **argv) {
 		write(Collectables_file_code, "\n");
 	}
 
-	// Items
-	{
-		enum Item_Flag : u8 {
-			Item_Flag_Collectable = (1 << 0),
-		};
-
-		get_data_table_english("Item", item_table);
-
-		expect(item_tables.column_types[11] == Column_Type_STRING);
-		expect(item_tables.column_types[39] == Column_Type_BIT7);
-
-		Array<String> item_to_name_DATA = {};
-		Concatenator item_to_name_STR_DATA = {};
-		Array<u8> item_to_flags_DATA = {};
-
-		defer{ item_to_name_DATA.reset(); };
-		defer{ item_to_name_STR_DATA.free(); };
-		defer{ item_to_flags_DATA.reset(); };
-
-		item_to_name_DATA.ensure_capacity(item_table.num_rows);
-		item_to_flags_DATA.ensure_capacity(item_table.num_rows);
-
-		char null_terminator = '\0';
-		item_to_name_STR_DATA.add(&null_terminator);
-		u64 curr_str_offset = 1;
-
-		for(auto item : item_table) {
-			auto item_name = item[11].STRING;
-			auto item_is_collectable = item[39].BIT_FIELD & 0x80;
-
-			auto &placeholder_string = item_to_name_DATA.add({});
-			auto &flags = item_to_flags_DATA.add({});
-
-			flags |= item_is_collectable ? Item_Flag_Collectable : 0;
-
-			if (item_name.length) {
-				placeholder_string.length = item_name.length;
-				placeholder_string.data = (char *)curr_str_offset;
-
-				item_to_name_STR_DATA.add(item_name);
-				item_to_name_STR_DATA.add(&null_terminator);
-
-				curr_str_offset += item_name.length + 1;
-			}
-		}
-
-		String item_to_name_STR_DATA_buffer = item_to_name_STR_DATA.pack();
-		defer{ free(item_to_name_STR_DATA_buffer.data); };
-
-		ROString additional_includes[] = { "\"../src/string.h\"" };
-		make_generated_file(Items, additional_includes);
-
-		write(Items_file_header, "typedef uint16_t Item;\n");
-		write(Items_file_header, "\n");
-		write(Items_file_header, "enum Item_Flag : uint8_t {\n");
-		write(Items_file_header, "    Item_Flag_Collectable = (1 << 0),\n");
-		write(Items_file_header, "};\n");
-		write(Items_file_header, "\n");
-		write_array_compressed_DN(Items_file, "ROString_Literal", "Item_to_name", item_to_name_DATA, "NUM_ITEMS");
-		write_array_compressed_N(Items_file, "Item_Flag", "Item_to_flags", item_to_flags_DATA, "NUM_ITEMS");
-		write_array_compressed(Items_file, "char", "Item_to_name_STR_DATA", Array_View<u8>(item_to_name_STR_DATA_buffer, item_to_name_STR_DATA_buffer.length));
-
-
-		write(Items_file_header, "\n");
-		write(Items_file_header, "extern bool Items_decompress();\n");
-		write(Items_file_header, "\n");
-
-		write(Items_file_code, "bool Items_decompress() {\n");
-		write_array_decompression(Items_file_code, "Item_to_name");
-		write_array_decompression(Items_file_code, "Item_to_flags");
-		write_array_decompression(Items_file_code, "Item_to_name_STR_DATA");
-		write(Items_file_code, "    for(auto &item : Item_to_name) {\n");
-		write(Items_file_code, "		uint64_t *data_ptr = (uint64_t *)&item.data;\n");
-		write(Items_file_code, "        *data_ptr += (uint64_t)Item_to_name_STR_DATA;\n");
-		write(Items_file_code, "    }\n");
-		write(Items_file_code, "    \n");
-		write(Items_file_code, "    return true;\n");
-		write(Items_file_code, "}\n");
-
-
-		//report_compression("Items", item_to_name_DATA.count * sizeof(item_to_name_DATA[0]) + item_to_name_STR_DATA_buffer.length + item_to_flags_DATA.count * sizeof(item_to_flags_DATA[0]), item_to_name_DATA_compressed.length + item_to_name_STR_DATA_compressed.length + item_to_flags_DATA_compressed.length);
-	}
+	Array<u32> craftable_items = {};
 
 	// Recipes
 	{
 		struct Recipe {
-			s32 id;
+			u32 id;
 			u16 level_table_index;
 
 			s32 Result;
@@ -1822,7 +1740,7 @@ int main(int argc, char **argv) {
 		};
 
 		struct Recipe_Level_Table {
-			s32 id;
+			u32 id;
 
 			u8 ClassJobLevel;
 			u8 Stars;
@@ -1838,7 +1756,7 @@ int main(int argc, char **argv) {
 		};
 
 		struct Recipe_Lookup {
-			s32 id;
+			u32 id;
 
 			u16 CRP;
 			u16 BSM;
@@ -1948,6 +1866,8 @@ int main(int argc, char **argv) {
 			u8 quality_modifier;
 
 			s8 level;
+
+			u32 id;
 		};
 
 		Array<Output_Recipe> CRP_recipes = {};
@@ -2007,6 +1927,10 @@ int main(int argc, char **argv) {
 			result.quality_modifier = level_table.QualityModifier;
 
 			result.level = level_table.ClassJobLevel;
+
+			result.id = recipe.id;
+
+			craftable_items.add(result.Result);
 		};
 
 		#define do_lookup(job) if(lookup.job) add_recipe(job## _recipes, lookup.job);
@@ -2067,6 +1991,8 @@ int main(int argc, char **argv) {
 		write(Recipes_file_header, "    uint8_t quality_modifier;\n");
 		write(Recipes_file_header, "    \n");
 		write(Recipes_file_header, "    int8_t level;\n");
+		write(Recipes_file_header, "    \n");
+		write(Recipes_file_header, "    uint32_t id;\n");
 		write(Recipes_file_header, "} Recipe;\n");
 		write(Recipes_file_header, "\n");
 		write(Recipes_file_header, "extern Recipe Recipes[NUM_JOBS][MAX_NUM_RECIPES];\n");
@@ -2101,6 +2027,97 @@ int main(int argc, char **argv) {
 		report_compression("Recipes", Recipes_DATA_buffer.length, Recipes_DATA_compressed.length);
 	}
 
+	// Items
+	{
+		enum Item_Flag : u8 {
+			Item_Flag_Craftable = (1 << 0),
+			Item_Flag_Collectable = (1 << 1),
+		};
+
+		get_data_table_english("Item", item_table);
+
+		expect(item_tables.column_types[11] == Column_Type_STRING);
+		expect(item_tables.column_types[39] == Column_Type_BIT7);
+
+		Array<String> item_to_name_DATA = {};
+		Concatenator item_to_name_STR_DATA = {};
+		Array<u8> item_to_flags_DATA = {};
+
+		defer{ item_to_name_DATA.reset(); };
+		defer{ item_to_name_STR_DATA.free(); };
+		defer{ item_to_flags_DATA.reset(); };
+
+		item_to_name_DATA.ensure_capacity(item_table.num_rows);
+		item_to_flags_DATA.ensure_capacity(item_table.num_rows);
+
+		char null_terminator = '\0';
+		item_to_name_STR_DATA.add(&null_terminator);
+		u64 curr_str_offset = 1;
+
+		u32 index = 0;
+		for(auto item : item_table) {
+			auto item_id = item[0].U32;
+			auto item_name = item[11].STRING;
+			auto item_is_collectable = item[39].BIT_FIELD & 0x80;
+
+			expect(item_id == index);
+
+			auto &placeholder_string = item_to_name_DATA.add({});
+			auto &flags = item_to_flags_DATA.add({});
+
+			flags |= craftable_items.Any([&](auto x) { return x == item_id; }) ? Item_Flag_Craftable : 0;
+			flags |= item_is_collectable ? Item_Flag_Collectable : 0;
+
+			if (item_name.length) {
+				placeholder_string.length = item_name.length;
+				placeholder_string.data = (char *)curr_str_offset;
+
+				item_to_name_STR_DATA.add(item_name);
+				item_to_name_STR_DATA.add(&null_terminator);
+
+				curr_str_offset += item_name.length + 1;
+			}
+			
+			index++;
+		}
+
+		String item_to_name_STR_DATA_buffer = item_to_name_STR_DATA.pack();
+		defer{ free(item_to_name_STR_DATA_buffer.data); };
+
+		ROString additional_includes[] = { "\"../src/string.h\"" };
+		make_generated_file(Items, additional_includes);
+
+		write(Items_file_header, "typedef uint16_t Item;\n");
+		write(Items_file_header, "\n");
+		write(Items_file_header, "enum Item_Flag : uint8_t {\n");
+		write(Items_file_header, "    Item_Flag_Craftable = (1 << 0),\n");
+		write(Items_file_header, "    Item_Flag_Collectable = (1 << 1),\n");
+		write(Items_file_header, "};\n");
+		write(Items_file_header, "\n");
+		write_array_compressed_DN(Items_file, "ROString_Literal", "Item_to_name", item_to_name_DATA, "NUM_ITEMS");
+		write_array_compressed_N(Items_file, "Item_Flag", "Item_to_flags", item_to_flags_DATA, "NUM_ITEMS");
+		write_array_compressed(Items_file, "char", "Item_to_name_STR_DATA", Array_View<u8>(item_to_name_STR_DATA_buffer, item_to_name_STR_DATA_buffer.length));
+
+
+		write(Items_file_header, "\n");
+		write(Items_file_header, "extern bool Items_decompress();\n");
+		write(Items_file_header, "\n");
+
+		write(Items_file_code, "bool Items_decompress() {\n");
+		write_array_decompression(Items_file_code, "Item_to_name");
+		write_array_decompression(Items_file_code, "Item_to_flags");
+		write_array_decompression(Items_file_code, "Item_to_name_STR_DATA");
+		write(Items_file_code, "    for(auto &item : Item_to_name) {\n");
+		write(Items_file_code, "		uint64_t *data_ptr = (uint64_t *)&item.data;\n");
+		write(Items_file_code, "        *data_ptr += (uint64_t)Item_to_name_STR_DATA;\n");
+		write(Items_file_code, "    }\n");
+		write(Items_file_code, "    \n");
+		write(Items_file_code, "    return true;\n");
+		write(Items_file_code, "}\n");
+
+
+		//report_compression("Items", item_to_name_DATA.count * sizeof(item_to_name_DATA[0]) + item_to_name_STR_DATA_buffer.length + item_to_flags_DATA.count * sizeof(item_to_flags_DATA[0]), item_to_name_DATA_compressed.length + item_to_name_STR_DATA_compressed.length + item_to_flags_DATA_compressed.length);
+	}
 	
 	// CA_Texture
 	{

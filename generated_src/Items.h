@@ -9,7 +9,8 @@ extern "C" {
 typedef uint16_t Item;
 
 enum Item_Flag : uint8_t {
-    Item_Flag_Collectable = (1 << 0),
+    Item_Flag_Craftable = (1 << 0),
+    Item_Flag_Collectable = (1 << 1),
 };
 
 #define NUM_ITEMS (38001)

@@ -31,7 +31,7 @@ enum Main_Panel {
     Main_Panel_Profile,
     Main_Panel_Crafting_Simulator,
     Main_Panel_Crafting_Solver,
-    Main_Panel_Materials,
+    Main_Panel_Lists,
 };
 
 extern struct Global_Data {
@@ -73,7 +73,7 @@ extern struct Global_Data {
     struct {
         Array<Item_List> item_lists;
         Item_List *selected_list;
-    } materials;
+    } lists;
 
     int32_t lines_per_macro = 13;
 

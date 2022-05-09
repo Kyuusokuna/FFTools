@@ -1754,14 +1754,40 @@ const char *GUI::init(ID3D11Device *device) {
     };
     lists_handler.ReadLineFn = [](ImGuiContext *ctx, ImGuiSettingsHandler *handler, void *entry, const char *line) {
         auto &list = *(Item_List *)entry;
-        u32 ui32_1, ui32_2, ui32_3;
+        u32 ui32_1, ui32_2;
 
         String line_str = { (int64_t)strlen(line), (char *)line };
         if (!line_str.length)
             return;
 
         if (sscanf(line, "item=%u,%u", &ui32_1, &ui32_2) == 2) { list.items.add({ .item = (Item)ui32_1, .amount = ui32_2 }); }
-        else if(sscanf(line, "recipe=%u,%u,%u", &ui32_1, &ui32_2, &ui32_3) == 3) { }
+        else if(sscanf(line, "recipe=%u,%u", &ui32_1, &ui32_2) == 2) {
+            Item_List::Selected_Recipe selected_recipe = {};
+            selected_recipe.item = (Item)ui32_1;
+
+            for (auto indexed_recipe : All_Recipes_Iterator()) {
+                Recipe *recipe = &Recipes[indexed_recipe.job][indexed_recipe.index];
+
+                if (recipe->result != ui32_1)
+                    continue;
+
+                selected_recipe.num_possible_recipes++;
+                selected_recipe.possible_recipes[indexed_recipe.job] = recipe;
+            }
+
+            for (auto recipe : selected_recipe.possible_recipes) {
+                if (!recipe)
+                    continue;
+
+                if (recipe->id == ui32_2) {
+                    selected_recipe.selected_recipe = recipe;
+                    list.selected_recipes.add(selected_recipe);
+                    return;
+                }
+            }
+
+            printf("WARNING: Could not find the selected recipe of list '%s' with id '%u' and result '%u'. It will be dropped in the next save.\n", list.name, ui32_2, ui32_1);
+        }
         else { printf("WARNING: Unknown directive in save file [List][%s]. It will be dropped on the next save.\nThe line was '%s'.\n", list.name, line); }
     };
     lists_handler.WriteAllFn = [](ImGuiContext *ctx, ImGuiSettingsHandler *handler, ImGuiTextBuffer *buf) {
@@ -1771,28 +1797,23 @@ const char *GUI::init(ID3D11Device *device) {
             buf->appendf("[%s][%s]\n", handler->TypeName, list.name);
 
             for (int j = 0; j < list.items.count; j++) {
-                auto item = list.items[j];
+                auto &item = list.items[j];
                 buf->appendf("item=%u,%u\n", item.item, item.amount);
+            }
+
+            for (int j = 0; j < list.selected_recipes.count; j++) {
+                auto &recipe = list.selected_recipes[j];
+                if (recipe.num_possible_recipes < 2)
+                    continue;
+
+                if (!recipe.selected_recipe)
+                    continue;
+
+                buf->appendf("recipe=%u,%u\n", recipe.item, recipe.selected_recipe->id);
             }
 
             buf->append("\n");
         }
-        #if 0
-        for (int i = 0; i < NUM_JOBS; i++) {
-            auto &data = global_data.craft_setup.job_settings[i];
-            buf->appendf("[%s][%s]\n", handler->TypeName, Craft_Job_to_string[i].data);
-            buf->appendf("level=%d\n", data.level);
-            buf->appendf("craftsmanship=%d\n", data.craftsmanship);
-            buf->appendf("control=%d\n", data.control);
-            buf->appendf("cp=%d\n", data.cp);
-            buf->appendf("specialist=%d\n", data.specialist);
-            for (int i = 0; i < NUM_ACTIONS; i++) {
-                if (data.active_actions & (1 << i))
-                    buf->appendf("active_action=%s\n", Craft_Action_to_serialization_string[i].data);
-            }
-            buf->append("\n");
-        }
-        #endif
     };
     context.SettingsHandlers.push_back(lists_handler);
     

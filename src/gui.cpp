@@ -1131,13 +1131,13 @@ void filter_item_list(Array<Item> &filtered_items, ROString search_string, bool 
     }
 }
 
-bool MarkableCollapsingHeader(const char *label, bool marked = false) {
+bool MarkableCollapsingHeader(const char *label, bool marked = false, ImGuiTreeNodeFlags flags = 0) {
     if (marked) {
         ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(1.00f, 0.86f, 0.00f, 0.52f));
         ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(1.00f, 0.89f, 0.22f, 0.64f));
     }
 
-    bool open = ImGui::CollapsingHeader(label);
+    bool open = ImGui::CollapsingHeader(label, flags);
 
     if (marked)
         ImGui::PopStyleColor(2);
@@ -1246,10 +1246,10 @@ void lists_panel() {
     ImGuiTextBuffer items_header_text;
     items_header_text.appendf("Items [%u (%u)]###Items", (u32)list->items.count, total_item_count);
 
-    if (ImGui::CollapsingHeader(items_header_text.c_str())) {
+    if (ImGui::CollapsingHeader(items_header_text.c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
 
         ImGui::Indent();
-        if (ImGui::CollapsingHeader("Add Item")) {
+        if (ImGui::CollapsingHeader("Add Item", ImGuiTreeNodeFlags_DefaultOpen)) {
             if (ImGui::Checkbox("Only Craftables", &only_craftables))
                 filter_item_list(filtered_items, ROString(strlen(item_search), item_search), only_craftables, only_collectables);
 
@@ -1479,7 +1479,7 @@ void lists_panel() {
     ImGuiTextBuffer materials_header_text;
     materials_header_text.appendf("Materials [%u (%u)]###Materials", (u32)raw_materials.count, total_num_materials);
 
-    if (ImGui::CollapsingHeader(materials_header_text.c_str())) {
+    if (ImGui::CollapsingHeader(materials_header_text.c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
         raw_materials.sort([](auto a, auto b) { return a.item < b.item; });
 
         if (raw_materials.count) {
@@ -1515,7 +1515,7 @@ void lists_panel() {
             }
 
         } else {
-            ImGui::TextUnformatted("No items in list.");
+            ImGui::TextUnformatted("No materials in list.");
         }
     }
 

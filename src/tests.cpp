@@ -14,7 +14,8 @@ int main(int argc, char **argv) {
     return utest_main(argc, argv);
 }
 
-Recipe *get_recipe_by_name(Craft_Job job, ROString name) {
+#define get_recipe_by_name(job, name) ({ASSERT_TRUE(!!_get_recipe_by_name(job, name)); _get_recipe_by_name(job, name);})
+Recipe *_get_recipe_by_name(Craft_Job job, ROString name) {
     for (auto &recipe : Recipes[job]) {
         if (!recipe.result)
             break;
@@ -35,6 +36,7 @@ struct SimpleResult {
 };
 
 #define SCRIP_70 400, 1645, 1532
+#define SCRIP_80 507, 2606, 2457
 
 Context make_context(s32 level, s32 cp, s32 craftsmanship, s32 control, Recipe *recipe) {
     return init_context(
@@ -389,5 +391,27 @@ UTEST(Manual, buff_rounding) {
         Craft_Action actions[] = { CA_Delicate_Synthesis, CA_Delicate_Synthesis, CA_Delicate_Synthesis, CA_Delicate_Synthesis, };
         SimpleResult result = { .cp = 272, .durability = 40, .progress = 548, .quality = 827 };
         SIMPLE_EVAL_AND_CHECK(80, SCRIP_70, recipe, actions, result);
+    }
+}
+
+UTEST(Manual, recipe_level_equals_player_level) {
+    Recipe *recipe = get_recipe_by_name(Craft_Job_CUL, "Rarefied Sykon Bavarois");
+
+    {
+        Craft_Action actions[] = { CA_Muscle_memory };
+        SimpleResult result = { .cp = 501, .durability = 70, .progress = 546, .quality = 0 };
+        SIMPLE_EVAL_AND_CHECK(90, SCRIP_80, recipe, actions, result);
+    }
+
+    {
+        Craft_Action actions[] = { CA_Basic_Touch };
+        SimpleResult result = { .cp = 489, .durability = 70, .progress = 0, .quality = 198 };
+        SIMPLE_EVAL_AND_CHECK(90, SCRIP_80, recipe, actions, result);
+    }
+
+    {
+        Craft_Action actions[] = { CA_Muscle_memory, CA_Basic_Touch };
+        SimpleResult result = { .cp = 483, .durability = 60, .progress = 546, .quality = 198 };
+        SIMPLE_EVAL_AND_CHECK(90, SCRIP_80, recipe, actions, result);
     }
 }

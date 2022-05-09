@@ -5,17 +5,15 @@
 
 namespace Crafting_Simulator {
     s32 calc_progress_increase(s32 player_level, s32 recipe_level, s32 craftsmanship, s32 progress_divider, s32 progress_modifier) {
-        s32 increase = craftsmanship * 10 / progress_divider + 2;
-        if (player_level < recipe_level)
-            increase = increase * progress_modifier / 100;
+        s32 modifier = player_level <= recipe_level ? progress_modifier : 100;
+        s32 increase = (craftsmanship * 10 + progress_divider * 2) * modifier / (100 * progress_divider);
 
         return increase;
     }
 
     s32 calc_quality_increase(s32 player_level, s32 recipe_level, s32 control, s32 quality_divider, s32 quality_modifier) {
-        s32 increase = control * 10 / quality_divider + 35;
-        if (player_level < recipe_level)
-            increase = increase * quality_modifier / 100;
+        s32 modifier = player_level <= recipe_level ? quality_modifier : 100;
+        s32 increase = (control * 10 + quality_divider * 35) * modifier / (100 * quality_divider);
 
         return increase;
     }

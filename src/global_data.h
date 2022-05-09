@@ -18,7 +18,10 @@ struct Item_List {
 
     struct Selected_Recipe {
         Item item;
-        Recipe *recipe;
+        Recipe *selected_recipe;
+
+        u32 num_possible_recipes;
+        Recipe *possible_recipes[NUM_JOBS];
     };
 
     char name[64];

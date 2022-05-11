@@ -1,8 +1,5 @@
 #include "crafting_simulator.h"
 
-// KNOWN ISSUES:
-//    CA_Manipulation is not implemented
-
 namespace Crafting_Simulator {
     s32 calc_progress_increase(s32 player_level, s32 recipe_level, s32 craftsmanship, s32 progress_divider, s32 progress_modifier) {
         s32 modifier = player_level <= recipe_level ? progress_modifier : 100;
@@ -219,8 +216,10 @@ namespace Crafting_Simulator {
         if (action == CA_Trained_Eye)
             new_state.w = 0;
 
+        if (manipulation_turns)
+            new_state.y = clamp(new_state.y + 5, INT_MIN, context.initial_state.y);
+
         context.state = new_state;
-        //context.turns.m128i = _mm_subs_epu16(context.turns.m128i, _mm_setr_epi16(1, 1, 1, 1, 1, 1, 0, 0));
         _mm_storeu_si128(&context.turns.m128i, _mm_subs_epu16(_mm_loadu_si128(&context.turns.m128i), _mm_setr_epi16(1, 1, 1, 1, 1, 1, 0, 0)));
 
         if (action == CA_Muscle_memory)

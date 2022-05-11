@@ -63,15 +63,15 @@ Context make_context(s32 level, s32 cp, s32 craftsmanship, s32 control, Recipe *
     ASSERT_EQ(recipe->progress - (state).z, (result).progress); \
     ASSERT_EQ(recipe->quality - (state).w, (result).quality); 
 
-#define SIMPLE_EVAL_AND_CHECK(level, stats, recipe, actions, result) {  \
+#define SIMPLE_EVAL_AND_CHECK(level, stats, recipe, actions, result)    \
     auto context = make_context((level), stats, (recipe));              \
                                                                         \
     for (auto action : (actions))                                       \
         ASSERT_TRUE(simulate_step(context, action));                    \
                                                                         \
     ASSERT_EQ(context.step, ARRAYSIZE((actions)));                      \
-    CHECK_STATE(context.state, (result));                               \
-}
+    CHECK_STATE(context.state, (result));                               
+
 
 
 
@@ -325,7 +325,24 @@ UTEST(Buffs, Waste_Not2) {
 }
 
 UTEST(Buffs, Manipulation) {
-    // TODO
+    Recipe *recipe = get_recipe_by_name(Craft_Job_CUL, "Rarefied Sykon Bavarois");
+
+    {
+        Craft_Action actions[] = { CA_Manipulation, CA_Basic_Touch, CA_Basic_Touch, CA_Basic_Touch, CA_Basic_Touch, CA_Basic_Touch, CA_Basic_Touch, CA_Basic_Touch, CA_Basic_Touch, CA_Basic_Touch };
+        SimpleResult result = { .cp = 249, .durability = 30, .progress = 0, .quality = 2491 };
+
+        SIMPLE_EVAL_AND_CHECK(90, SCRIP_80, recipe, actions, result);
+    }
+
+    {
+        Craft_Action actions[] = { CA_Basic_Touch, CA_Basic_Touch, CA_Basic_Touch, CA_Basic_Touch, CA_Basic_Touch, CA_Basic_Touch, CA_Basic_Touch, CA_Manipulation };
+        SimpleResult result = { .cp = 285, .durability = 10, .progress = 0, .quality = 1799 };
+
+        SIMPLE_EVAL_AND_CHECK(90, SCRIP_80, recipe, actions, result);
+
+        ASSERT_FALSE(simulate_step(context, CA_Basic_Touch));
+        CHECK_STATE(context.state, result);
+    }
 }
 
 UTEST(Buffs, Veneration) {

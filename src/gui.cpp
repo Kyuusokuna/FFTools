@@ -1421,13 +1421,13 @@ void lists_panel() {
         num_selectable_acquisition_sources++;
     }
 
-    if (num_selectable_acquisition_sources) {
-        ImGuiTextBuffer acquisition_methods_header_text;
-        acquisition_methods_header_text.appendf("Acquisition Methods [%u]###Sources", num_selectable_acquisition_sources);
+    ImGuiTextBuffer acquisition_methods_header_text;
+    acquisition_methods_header_text.appendf("Acquisition Methods [%u]###Sources", num_selectable_acquisition_sources);
 
-        if (MarkableCollapsingHeader(acquisition_methods_header_text.c_str(), any_non_selected_acquisition_source)) {
-            ImGui::Indent();
+    if (MarkableCollapsingHeader(acquisition_methods_header_text.c_str(), any_non_selected_acquisition_source)) {
+        ImGui::Indent();
 
+        if (num_selectable_acquisition_sources) {
             selected_recipes.sort([](auto a, auto b) { return a.item < b.item; });
             for (auto &acquisition : selected_recipes) {
                 if (acquisition.num_possible_recipes < 2)
@@ -1460,9 +1460,12 @@ void lists_panel() {
                 }
                 ImGui::PopID();
             }
-
-            ImGui::Unindent();
+        } else {
+            ImGui::TextUnformatted("There are no sources to select.");
         }
+
+
+        ImGui::Unindent();
     }
 
     for (int i = 0; i < selected_recipes.count; i++) {

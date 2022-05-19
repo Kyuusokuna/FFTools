@@ -198,6 +198,7 @@
   <ItemGroup>
     <Natvis Include="src\string.natvis" />
     <Natvis Include="src\Array.natvis" />
+    <Natvis Include="src\NatvisFile.natvis" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="data\app.rc">

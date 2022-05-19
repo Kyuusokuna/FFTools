@@ -1348,7 +1348,7 @@ void lists_panel() {
     defer{ raw_materials.reset(); };
 
     auto add_raw_material = [&](Item item, u32 amount) {
-        for (auto material : raw_materials) {
+        for (auto &material : raw_materials) {
             if (material.item == item) {
                 material.amount += amount;
                 return;

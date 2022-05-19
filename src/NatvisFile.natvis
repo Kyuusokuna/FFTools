@@ -74,4 +74,8 @@
 			</CustomListItems>
 		</Expand>
 	</Type>
+
+	<Type Name="Item_List::Entry">
+		<DisplayString>[{amount}] {item} ({Item_to_name[item]})</DisplayString>
+	</Type>
 </AutoVisualizer>

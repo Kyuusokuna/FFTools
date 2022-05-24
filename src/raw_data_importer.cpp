@@ -60,6 +60,12 @@ static_assert(ATLAS_DIMENSION % 4 == 0, "ATLAS_DIMENSION needs to be a multiple 
 using namespace std::filesystem;
 using namespace ispc; 
 
+template <typename, typename>
+constexpr bool is_same_type = false;
+
+template <typename T>
+constexpr bool is_same_type<T, T> = true;
+
 char cpp_guard_header[] = "#ifdef __cplusplus\nextern \"C\" {\n#endif\n";
 char cpp_guard_footer[] = "#ifdef __cplusplus\n}\n#endif\n";
 
@@ -69,6 +75,14 @@ void error_exit(int code) {
 }
 
 #define align_to_pow2(x, pow2) (((x) + ((pow2) - 1)) & ~((pow2) - 1))
+
+struct Time_Scope {
+	const char *name;
+	u64 start_time;
+
+	Time_Scope(const char *name) : name(name), start_time(Time::get_time()) { }
+	~Time_Scope() { printf("%-16s took %gms\n", name, ((f64)(Time::get_time() - start_time)) / ((f64)Time::get_frequency() / 1000.0)); }
+};
 
 Byte_View map_file(const char *path) {
 	auto file = CreateFileA(path, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
@@ -448,12 +462,7 @@ bool get_file(const char *filepath, File *result = 0) {
 }
 
 void init_file_table(const char *base_dir) {
-	auto start_time = Time::get_time();
-	defer{
-		auto end_time = Time::get_time();
-		auto frequency = Time::get_frequency();
-		printf("File table creation took %gs\n", (end_time - start_time) / (f64)frequency);
-	};
+	Time_Scope time("File Table");
 
 	for(u8 expansion = 0; expansion < NUM_EXPANSIONS; expansion++)
 		for(u8 pack_type = 0; pack_type < NUM_PACK_TYPES; pack_type++)
@@ -830,14 +839,14 @@ void print_length(u64 length) {
 		unit++;
 	}
 
-	printf("%4llu %s", length, *unit);
+	printf("%llu %s", length, *unit);
 }
 
 u64 total_bytes_uncompressed;
 u64 total_bytes_compressed;
 
 void report_compression(const char *name, u64 uncompressed, u64 compressed) {
-	printf("%10s: ", name);
+	printf("%-16s ", name);
 	print_length(uncompressed);
 	printf(" -> ");
 	print_length(compressed);
@@ -849,7 +858,7 @@ void report_compression(const char *name, u64 uncompressed, u64 compressed) {
 }
 
 void report_total_compression() {
-	printf("%10s: ", "Total");
+	printf("%-16s ", "Total");
 	print_length(total_bytes_uncompressed);
 	printf(" -> ");
 	print_length(total_bytes_compressed);
@@ -1046,7 +1055,7 @@ void bswap(T &x) {
 	else if constexpr (sizeof(T) == 2)
 		x = (T)__builtin_bswap16(x);
 	else if constexpr (sizeof(T) == 1)
-		return;
+		x = (T)x;
 	else
 		static_assert(!sizeof(T));
 }
@@ -1091,7 +1100,7 @@ constexpr u8 Column_Type_to_num_bytes[] = {
 	[Column_Type_U32] = 4,
 
 	[Column_Type_F32] = 4,
-	[Column_Type_UNKNOWN11] = 4,
+	[Column_Type_UNKNOWN11] = 8,
 
 	[Column_Type_BIT0] = 1,
 	[Column_Type_BIT1] = 1,
@@ -1141,6 +1150,22 @@ struct Static_Array {
 
 	T &operator[](u64 index) {
 		return data[index];
+	}
+
+	T *begin() {
+		return data;
+	}
+
+	T *end() {
+		return data + count;
+	}
+
+	void free() {
+		if (data) {
+			::free(data);
+			data = 0;
+			count = 0;
+		}
 	}
 };
 
@@ -1511,6 +1536,8 @@ bool parse_ex_file(const ROString name, Data_Table &result) {
 }
 
 Byte_View compress(Byte_View source) {
+	Time_Scope time("->compress");
+
 	size_t compressed_length = 0;
 	auto compressed_data = tdefl_compress_mem_to_heap(source.data, source.length, &compressed_length, TDEFL_MAX_PROBES_MASK);
 	expect(compressed_data);
@@ -1550,6 +1577,8 @@ Byte_View compress(Byte_View source) {
 int main(int argc, char **argv) {
 	if (argc != 3)
 		error_exit(1);
+
+	Time_Scope time("Total");
 
 	std::string out_dir(argv[2]);
 
@@ -1657,6 +1686,8 @@ int main(int argc, char **argv) {
 
 	// Experience
 	{
+		Time_Scope time("Experience");
+
 		get_data_table_generic("ParamGrow", experience_table);
 
 		Array<s32> exp_to_next_level = {};
@@ -1683,6 +1714,8 @@ int main(int argc, char **argv) {
 
 	// Collectables
 	{
+		Time_Scope time("Collectables");
+
 		get_data_table_generic("CollectablesShopItem", collectables_turn_ins);
 		get_data_table_english("CollectablesShopItemGroup", collectables_turn_ins_category);
 		get_data_table_generic("CollectablesShopRefine", collectability_table);
@@ -1721,6 +1754,8 @@ int main(int argc, char **argv) {
 
 	// Recipes
 	{
+		Time_Scope time("Recipes");
+
 		struct Recipe {
 			u32 id;
 			u16 level_table_index;
@@ -2029,6 +2064,8 @@ int main(int argc, char **argv) {
 
 	// Items
 	{
+		Time_Scope time("Items");
+
 		enum Item_Flag : u8 {
 			Item_Flag_Craftable = (1 << 0),
 			Item_Flag_Collectable = (1 << 1),
@@ -2054,73 +2091,82 @@ int main(int argc, char **argv) {
 		item_to_name_STR_DATA.add(&null_terminator);
 		u64 curr_str_offset = 1;
 
-		u32 index = 0;
-		for(auto item : item_table) {
-			auto item_id = item[0].U32;
-			auto item_name = item[11].STRING;
-			auto item_is_collectable = item[39].BIT_FIELD & 0x80;
+		{
+			Time_Scope time("Items_processing");
 
-			expect(item_id == index);
+			u32 index = 0;
+			for (auto item : item_table) {
+				auto item_id = item[0].U32;
+				auto item_name = item[11].STRING;
+				auto item_is_collectable = item[39].BIT_FIELD & 0x80;
 
-			auto &placeholder_string = item_to_name_DATA.add({});
-			auto &flags = item_to_flags_DATA.add({});
+				expect(item_id == index);
 
-			flags |= craftable_items.Any([&](auto x) { return x == item_id; }) ? Item_Flag_Craftable : 0;
-			flags |= item_is_collectable ? Item_Flag_Collectable : 0;
+				auto &placeholder_string = item_to_name_DATA.add({});
+				auto &flags = item_to_flags_DATA.add({});
 
-			if (item_name.length) {
-				placeholder_string.length = item_name.length;
-				placeholder_string.data = (char *)curr_str_offset;
+				flags |= craftable_items.Any([&](auto x) { return x == item_id; }) ? Item_Flag_Craftable : 0;
+				flags |= item_is_collectable ? Item_Flag_Collectable : 0;
 
-				item_to_name_STR_DATA.add(item_name);
-				item_to_name_STR_DATA.add(&null_terminator);
+				if (item_name.length) {
+					placeholder_string.length = item_name.length;
+					placeholder_string.data = (char *)curr_str_offset;
 
-				curr_str_offset += item_name.length + 1;
+					item_to_name_STR_DATA.add(item_name);
+					item_to_name_STR_DATA.add(&null_terminator);
+
+					curr_str_offset += item_name.length + 1;
+				}
+
+				index++;
 			}
-			
-			index++;
 		}
 
-		String item_to_name_STR_DATA_buffer = item_to_name_STR_DATA.pack();
-		defer{ free(item_to_name_STR_DATA_buffer.data); };
+		{
+			Time_Scope time("Items_output");
 
-		ROString additional_includes[] = { "\"../src/string.h\"" };
-		make_generated_file(Items, additional_includes);
+			String item_to_name_STR_DATA_buffer = item_to_name_STR_DATA.pack();
+			defer{ free(item_to_name_STR_DATA_buffer.data); };
 
-		write(Items_file_header, "typedef uint16_t Item;\n");
-		write(Items_file_header, "\n");
-		write(Items_file_header, "enum Item_Flag : uint8_t {\n");
-		write(Items_file_header, "    Item_Flag_Craftable = (1 << 0),\n");
-		write(Items_file_header, "    Item_Flag_Collectable = (1 << 1),\n");
-		write(Items_file_header, "};\n");
-		write(Items_file_header, "\n");
-		write_array_compressed_DN(Items_file, "ROString_Literal", "Item_to_name", item_to_name_DATA, "NUM_ITEMS");
-		write_array_compressed_N(Items_file, "Item_Flag", "Item_to_flags", item_to_flags_DATA, "NUM_ITEMS");
-		write_array_compressed(Items_file, "char", "Item_to_name_STR_DATA", Array_View<u8>(item_to_name_STR_DATA_buffer, item_to_name_STR_DATA_buffer.length));
+			ROString additional_includes[] = { "\"../src/string.h\"" };
+			make_generated_file(Items, additional_includes);
+
+			write(Items_file_header, "typedef uint16_t Item;\n");
+			write(Items_file_header, "\n");
+			write(Items_file_header, "enum Item_Flag : uint8_t {\n");
+			write(Items_file_header, "    Item_Flag_Craftable = (1 << 0),\n");
+			write(Items_file_header, "    Item_Flag_Collectable = (1 << 1),\n");
+			write(Items_file_header, "};\n");
+			write(Items_file_header, "\n");
+			write_array_compressed_DN(Items_file, "ROString_Literal", "Item_to_name", item_to_name_DATA, "NUM_ITEMS");
+			write_array_compressed_N(Items_file, "Item_Flag", "Item_to_flags", item_to_flags_DATA, "NUM_ITEMS");
+			write_array_compressed(Items_file, "char", "Item_to_name_STR_DATA", Array_View<u8>(item_to_name_STR_DATA_buffer, item_to_name_STR_DATA_buffer.length));
 
 
-		write(Items_file_header, "\n");
-		write(Items_file_header, "extern bool Items_decompress();\n");
-		write(Items_file_header, "\n");
+			write(Items_file_header, "\n");
+			write(Items_file_header, "extern bool Items_decompress();\n");
+			write(Items_file_header, "\n");
 
-		write(Items_file_code, "bool Items_decompress() {\n");
-		write_array_decompression(Items_file_code, "Item_to_name");
-		write_array_decompression(Items_file_code, "Item_to_flags");
-		write_array_decompression(Items_file_code, "Item_to_name_STR_DATA");
-		write(Items_file_code, "    for(auto &item : Item_to_name) {\n");
-		write(Items_file_code, "		uint64_t *data_ptr = (uint64_t *)&item.data;\n");
-		write(Items_file_code, "        *data_ptr += (uint64_t)Item_to_name_STR_DATA;\n");
-		write(Items_file_code, "    }\n");
-		write(Items_file_code, "    \n");
-		write(Items_file_code, "    return true;\n");
-		write(Items_file_code, "}\n");
-
+			write(Items_file_code, "bool Items_decompress() {\n");
+			write_array_decompression(Items_file_code, "Item_to_name");
+			write_array_decompression(Items_file_code, "Item_to_flags");
+			write_array_decompression(Items_file_code, "Item_to_name_STR_DATA");
+			write(Items_file_code, "    for(auto &item : Item_to_name) {\n");
+			write(Items_file_code, "		uint64_t *data_ptr = (uint64_t *)&item.data;\n");
+			write(Items_file_code, "        *data_ptr += (uint64_t)Item_to_name_STR_DATA;\n");
+			write(Items_file_code, "    }\n");
+			write(Items_file_code, "    \n");
+			write(Items_file_code, "    return true;\n");
+			write(Items_file_code, "}\n");
+		}
 
 		//report_compression("Items", item_to_name_DATA.count * sizeof(item_to_name_DATA[0]) + item_to_name_STR_DATA_buffer.length + item_to_flags_DATA.count * sizeof(item_to_flags_DATA[0]), item_to_name_DATA_compressed.length + item_to_name_STR_DATA_compressed.length + item_to_flags_DATA_compressed.length);
 	}
 	
 	// CA_Texture
 	{
+		Time_Scope time("CA_Texture");
+
 		char filepath_buf[4096];
 
 		Array<GPUTexture> loaded_textures = {};

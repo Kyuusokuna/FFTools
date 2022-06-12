@@ -1215,7 +1215,7 @@ struct Static_Array2D {
 };
 
 struct Data_Cell {
-	Column_Type type;
+	//Column_Type type;
 
 	union {
 		ROString STRING;
@@ -1248,7 +1248,7 @@ Data_Cell read_column(Byte_View row, Column_Info column_info, Byte_View string_d
 	expect(cell_data.length == Column_Type_to_num_bytes[column_info.type]);
 
 	Data_Cell cell = {};
-	cell.type = column_info.type;
+	//cell.type = column_info.type;
 
 	switch (column_info.type) {
 		case Column_Type_BOOL: cell.BOOL = !!*(u8 *)cell_data.data; break;
@@ -1476,10 +1476,10 @@ bool parse_ex_file(const ROString name, Data_Table &result) {
 
 					auto row = result.localised_tables[language][rows_filled];
 
-					row[0].type = Column_Type_U32;
+					//row[0].type = Column_Type_U32;
 					row[0].U32 = row_info.row_index;
 
-					row[1].type = Column_Type_U16;
+					//row[1].type = Column_Type_U16;
 					row[1].U16 = 0;
 
 					for(int k = 0; k < column_infos.count; k++)
@@ -1499,10 +1499,10 @@ bool parse_ex_file(const ROString name, Data_Table &result) {
 						expect(sub_row_index);
 						bswap(*sub_row_index);
 
-						row[0].type = Column_Type_U32;
+						//row[0].type = Column_Type_U32;
 						row[0].U32 = row_info.row_index;
 
-						row[1].type = Column_Type_U16;
+						//row[1].type = Column_Type_U16;
 						row[1].U16 = *sub_row_index;
 
 						sub_row_data = Byte_View(sub_row_data, sizeof(u16));
@@ -1618,8 +1618,8 @@ int main(int argc, char **argv) {
 	expect(get_file("exd/root.exl", &root_exl));
 	auto data_files = parse_root_exl(&root_exl);
 
-	#define get_data_table_generic(table_name, var_name) Data_Table var_name##s = {}; expect(parse_ex_file(table_name, var_name##s)); expect(var_name##s .localised_tables[Language_Generic].num_rows); defer{ var_name##s .free(); }; auto var_name = var_name##s .localised_tables[Language_Generic];
-	#define get_data_table_english(table_name, var_name) Data_Table var_name##s = {}; expect(parse_ex_file(table_name, var_name##s)); expect(var_name##s .localised_tables[Language_English].num_rows); defer{ var_name##s .free(); }; auto var_name = var_name##s .localised_tables[Language_English];
+	#define get_data_table_generic(table_name, var_name) Data_Table var_name##s = {}; expect(parse_ex_file(table_name, var_name##s)); expect(var_name##s .localised_tables[Language_Generic].num_rows); defer{ var_name##s .free(); }; auto var_name = var_name##s .localised_tables[Language_Generic]; auto var_name##_types = var_name##s .column_types;
+	#define get_data_table_english(table_name, var_name) Data_Table var_name##s = {}; expect(parse_ex_file(table_name, var_name##s)); expect(var_name##s .localised_tables[Language_English].num_rows); defer{ var_name##s .free(); }; auto var_name = var_name##s .localised_tables[Language_English]; auto var_name##_types = var_name##s .column_types;
 
 	#define write(var_name, ...) if(fprintf(var_name, __VA_ARGS__) < 0) { printf("failed to write to '%s'.\n", #var_name); error_exit(1); }
 
@@ -1689,6 +1689,7 @@ int main(int argc, char **argv) {
 		Time_Scope time("Experience");
 
 		get_data_table_generic("ParamGrow", experience_table);
+		expect(experience_table_types[2] == Column_Type_S32);
 
 		Array<s32> exp_to_next_level = {};
 		exp_to_next_level.ensure_capacity(experience_table.num_rows);
@@ -1716,10 +1717,16 @@ int main(int argc, char **argv) {
 	{
 		Time_Scope time("Collectables");
 
-		get_data_table_generic("CollectablesShopItem", collectables_turn_ins);
-		get_data_table_english("CollectablesShopItemGroup", collectables_turn_ins_category);
+		//get_data_table_generic("CollectablesShopItem", collectables_turn_ins);
+		
+		//get_data_table_english("CollectablesShopItemGroup", collectables_turn_ins_category);
+
 		get_data_table_generic("CollectablesShopRefine", collectability_table);
-		get_data_table_generic("CollectablesShopRewardScrip", collectables_rewards);
+		expect(collectability_table_types[2] == Column_Type_U16);
+		expect(collectability_table_types[3] == Column_Type_U16);
+		expect(collectability_table_types[4] == Column_Type_U16);
+
+		//get_data_table_generic("CollectablesShopRewardScrip", collectables_rewards);
 
 		struct Collectable_turn_in {
 			s32 item_id;
@@ -1744,7 +1751,7 @@ int main(int argc, char **argv) {
 		write(Collectables_file_code, "const Collectability_Info Collectability_Infos[NUM_COLLECTABILITY_INFOS] {\n");
 		for (int i = 0; i < collectability_table.num_rows; i++) {
 			auto collectability_info = collectability_table[i];
-			write(Collectables_file_code, "    { .low = %hu, .medium = %hu, .high = %hu },\n", collectability_info[2].U16, collectability_info[3].U16, collectability_info[2].U16);
+			write(Collectables_file_code, "    { .low = %hu, .medium = %hu, .high = %hu },\n", collectability_info[2].U16, collectability_info[3].U16, collectability_info[4].U16);
 		}
 		write(Collectables_file_code, "};\n");
 		write(Collectables_file_code, "\n");
@@ -1811,8 +1818,61 @@ int main(int argc, char **argv) {
 		defer{ recipe_lookups.reset(); };
 
 		get_data_table_generic("Recipe", recipe_table);
+		expect(recipe_table_types[4] == Column_Type_U16);
+
+		expect(recipe_table_types[5]  == Column_Type_S32);
+		expect(recipe_table_types[7]  == Column_Type_S32);
+		expect(recipe_table_types[9]  == Column_Type_S32);
+		expect(recipe_table_types[11] == Column_Type_S32);
+		expect(recipe_table_types[13] == Column_Type_S32);
+		expect(recipe_table_types[15] == Column_Type_S32);
+		expect(recipe_table_types[17] == Column_Type_S32);
+		expect(recipe_table_types[19] == Column_Type_S32);
+		expect(recipe_table_types[21] == Column_Type_S32);
+		expect(recipe_table_types[23] == Column_Type_S32);
+		expect(recipe_table_types[25] == Column_Type_S32);
+
+		expect(recipe_table_types[6]  == Column_Type_U8);
+		expect(recipe_table_types[8]  == Column_Type_U8);
+		expect(recipe_table_types[10] == Column_Type_U8);
+		expect(recipe_table_types[12] == Column_Type_U8);
+		expect(recipe_table_types[14] == Column_Type_U8);
+		expect(recipe_table_types[16] == Column_Type_U8);
+		expect(recipe_table_types[18] == Column_Type_U8);
+		expect(recipe_table_types[20] == Column_Type_U8);
+		expect(recipe_table_types[22] == Column_Type_U8);
+		expect(recipe_table_types[24] == Column_Type_U8);
+		expect(recipe_table_types[26] == Column_Type_U8);
+
+		expect(recipe_table_types[29] == Column_Type_U8);
+		expect(recipe_table_types[30] == Column_Type_U16);
+		expect(recipe_table_types[31] == Column_Type_U16);
+		expect(recipe_table_types[32] == Column_Type_U16);
+		expect(recipe_table_types[34] == Column_Type_U16);
+		expect(recipe_table_types[35] == Column_Type_U16);
+
 		get_data_table_generic("RecipeLevelTable", recipe_level_table_table);
+		expect(recipe_level_table_table_types[2] == Column_Type_U8);
+		expect(recipe_level_table_table_types[3] == Column_Type_U8);
+		expect(recipe_level_table_table_types[4] == Column_Type_U16);
+		expect(recipe_level_table_table_types[5] == Column_Type_U16);
+		expect(recipe_level_table_table_types[6] == Column_Type_U16);
+		expect(recipe_level_table_table_types[7] == Column_Type_U32);
+		expect(recipe_level_table_table_types[8] == Column_Type_U8);
+		expect(recipe_level_table_table_types[9] == Column_Type_U8);
+		expect(recipe_level_table_table_types[10] == Column_Type_U8);
+		expect(recipe_level_table_table_types[11] == Column_Type_U8);
+		expect(recipe_level_table_table_types[12] == Column_Type_U16);
+
 		get_data_table_generic("RecipeLookup", recipe_lookup_table);
+		expect(recipe_lookup_table_types[2] == Column_Type_U16);
+		expect(recipe_lookup_table_types[3] == Column_Type_U16);
+		expect(recipe_lookup_table_types[4] == Column_Type_U16);
+		expect(recipe_lookup_table_types[5] == Column_Type_U16);
+		expect(recipe_lookup_table_types[6] == Column_Type_U16);
+		expect(recipe_lookup_table_types[7] == Column_Type_U16);
+		expect(recipe_lookup_table_types[8] == Column_Type_U16);
+		expect(recipe_lookup_table_types[9] == Column_Type_U16);
 
 		recipes.ensure_capacity(recipe_table.num_rows);
 		recipe_level_tables.ensure_capacity(recipe_level_table_table.num_rows);
@@ -2072,9 +2132,8 @@ int main(int argc, char **argv) {
 		};
 
 		get_data_table_english("Item", item_table);
-
-		expect(item_tables.column_types[11] == Column_Type_STRING);
-		expect(item_tables.column_types[39] == Column_Type_BIT7);
+		expect(item_table_types[11] == Column_Type_STRING);
+		expect(item_table_types[39] == Column_Type_BIT7);
 
 		Array<String> item_to_name_DATA = {};
 		Concatenator item_to_name_STR_DATA = {};

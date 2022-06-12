@@ -1,7 +1,6 @@
 #pragma once
 #include <stdint.h>
-#include <x86intrin.h>
-#include <smmintrin.h>
+#include <emmintrin.h>
 
 typedef uint8_t  u8;
 typedef uint16_t u16;

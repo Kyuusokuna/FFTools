@@ -89,7 +89,7 @@ namespace Crafting_Simulator {
     constexpr f32x4 efficiency[NUM_ACTIONS] = {
         [CA_Muscle_memory] = {6.0, 10.0, 3.0, 0.0},
         [CA_Reflect] = {6.0, 10.0, 0.0, 1.0},
-        [CA_Trained_Eye] = {250.0, 10.0, 0.0, 999999.0},
+        [CA_Trained_Eye] = {250.0, 0.0, 0.0, 0.0},
 
         [CA_Basic_Synthesis] = {0.0, 10.0, 1.0, 0.0},
         [CA_Careful_Synthesis] = {7.0, 10.0, 1.5, 0.0},

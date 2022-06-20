@@ -35,9 +35,9 @@ struct SimpleResult {
     s32 quality;
 };
 
-#define SCRIP_70 400, 1645, 1532
-#define SCRIP_80 507, 2606, 2457
-
+#define SCRIP_350 400, 1645, 1532
+#define SCRIP_500 507, 2606, 2457
+    
 Context make_context(s32 level, s32 cp, s32 craftsmanship, s32 control, Recipe *recipe) {
     return init_context(
         level,
@@ -82,14 +82,14 @@ UTEST(Action, Muscle_memory) {
         Craft_Action actions[] = { CA_Muscle_memory, CA_Basic_Touch, CA_Basic_Touch, CA_Basic_Touch, CA_Basic_Touch, CA_Basic_Synthesis, CA_Basic_Synthesis };
         SimpleResult result = { .cp = 322, .durability = 10, .progress = 903, .quality = 827 };
 
-        SIMPLE_EVAL_AND_CHECK(80, SCRIP_70, recipe, actions, result);
+        SIMPLE_EVAL_AND_CHECK(80, SCRIP_350, recipe, actions, result);
     }
 
     {
         Craft_Action actions[] = { CA_Muscle_memory, CA_Basic_Touch, CA_Basic_Touch, CA_Basic_Touch, CA_Basic_Touch, CA_Basic_Touch, CA_Basic_Synthesis };
         SimpleResult result = { .cp = 304, .durability = 10, .progress = 575, .quality = 1079 };
 
-        SIMPLE_EVAL_AND_CHECK(80, SCRIP_70, recipe, actions, result);
+        SIMPLE_EVAL_AND_CHECK(80, SCRIP_350, recipe, actions, result);
     }
 }
 
@@ -98,7 +98,7 @@ UTEST(Action, Reflect) {
     Craft_Action actions[] = { CA_Reflect, CA_Basic_Touch };
     SimpleResult result = { .cp = 376, .durability = 60, .progress = 0, .quality = 396 };
 
-    SIMPLE_EVAL_AND_CHECK(80, SCRIP_70, recipe, actions, result);
+    SIMPLE_EVAL_AND_CHECK(80, SCRIP_350, recipe, actions, result);
 }
 
 UTEST(Action, Trained_Eye) {
@@ -111,7 +111,7 @@ UTEST(Action, Basic_Synthesis) {
     Craft_Action actions[] = { CA_Basic_Synthesis };
     SimpleResult result = { .cp = 400, .durability = 70, .progress = 164, .quality = 0 };
 
-    SIMPLE_EVAL_AND_CHECK(80, SCRIP_70, recipe, actions, result);
+    SIMPLE_EVAL_AND_CHECK(80, SCRIP_350, recipe, actions, result);
 }
 
 UTEST(Action, Careful_Synthesis) {
@@ -119,7 +119,7 @@ UTEST(Action, Careful_Synthesis) {
     Craft_Action actions[] = { CA_Careful_Synthesis };
     SimpleResult result = { .cp = 393, .durability = 70, .progress = 205, .quality = 0 };
 
-    SIMPLE_EVAL_AND_CHECK(80, SCRIP_70, recipe, actions, result);
+    SIMPLE_EVAL_AND_CHECK(80, SCRIP_350, recipe, actions, result);
 }
 
 UTEST(Action, Prudent_Synthesis) {
@@ -127,14 +127,14 @@ UTEST(Action, Prudent_Synthesis) {
     Craft_Action actions[] = { CA_Prudent_Synthesis };
     SimpleResult result = { .cp = 382, .durability = 75, .progress = 246, .quality = 0 };
 
-    SIMPLE_EVAL_AND_CHECK(80, SCRIP_70, recipe, actions, result);
+    SIMPLE_EVAL_AND_CHECK(80, SCRIP_350, recipe, actions, result);
 }
 
 UTEST(Action, Focused_Synthesis) {
     Recipe *recipe = get_recipe_by_name(Craft_Job_CUL, "Rarefied Archon Loaf");
     SimpleResult result = { .cp = 388, .durability = 70, .progress = 274, .quality = 0 };
 
-    auto context = make_context(80, SCRIP_70, recipe);
+    auto context = make_context(80, SCRIP_350, recipe);
 
     ASSERT_FALSE(simulate_step(context, CA_Focused_Synthesis));
     ASSERT_TRUE(simulate_step(context, CA_Observe));
@@ -149,7 +149,7 @@ UTEST(Action, Delicate_Synthesis) {
     Craft_Action actions[] = { CA_Delicate_Synthesis };
     SimpleResult result = { .cp = 368, .durability = 70, .progress = 137, .quality = 180 };
 
-    SIMPLE_EVAL_AND_CHECK(80, SCRIP_70, recipe, actions, result);
+    SIMPLE_EVAL_AND_CHECK(80, SCRIP_350, recipe, actions, result);
 }
 
 UTEST(Action, Groundwork) {
@@ -157,7 +157,7 @@ UTEST(Action, Groundwork) {
     Craft_Action actions[] = { CA_Groundwork };
     SimpleResult result = { .cp = 382, .durability = 60, .progress = 411, .quality = 0 };
 
-    SIMPLE_EVAL_AND_CHECK(80, SCRIP_70, recipe, actions, result);
+    SIMPLE_EVAL_AND_CHECK(80, SCRIP_350, recipe, actions, result);
 }
 
 
@@ -166,7 +166,7 @@ UTEST(Action, Basic_Touch) {
     Craft_Action actions[] = { CA_Basic_Touch };
     SimpleResult result = { .cp = 382, .durability = 70, .progress = 0, .quality = 180 };
 
-    SIMPLE_EVAL_AND_CHECK(80, SCRIP_70, recipe, actions, result);
+    SIMPLE_EVAL_AND_CHECK(80, SCRIP_350, recipe, actions, result);
 }
 
 UTEST(Action, Standard_Touch) {
@@ -174,7 +174,7 @@ UTEST(Action, Standard_Touch) {
     Craft_Action actions[] = { CA_Standard_Touch };
     SimpleResult result = { .cp = 368, .durability = 70, .progress = 0, .quality = 225 };
 
-    SIMPLE_EVAL_AND_CHECK(80, SCRIP_70, recipe, actions, result);
+    SIMPLE_EVAL_AND_CHECK(80, SCRIP_350, recipe, actions, result);
 }
 
 UTEST(Action, Advanced_Touch) {
@@ -182,7 +182,7 @@ UTEST(Action, Advanced_Touch) {
     Craft_Action actions[] = { CA_Advanced_Touch };
     SimpleResult result = { .cp = 354, .durability = 70, .progress = 0, .quality = 270 };
 
-    SIMPLE_EVAL_AND_CHECK(80, SCRIP_70, recipe, actions, result);
+    SIMPLE_EVAL_AND_CHECK(80, SCRIP_350, recipe, actions, result);
 }
 
 UTEST(Action, Prudent_Touch) {
@@ -190,14 +190,14 @@ UTEST(Action, Prudent_Touch) {
     Craft_Action actions[] = { CA_Prudent_Touch };
     SimpleResult result = { .cp = 375, .durability = 75, .progress = 0, .quality = 180 };
 
-    SIMPLE_EVAL_AND_CHECK(80, SCRIP_70, recipe, actions, result);
+    SIMPLE_EVAL_AND_CHECK(80, SCRIP_350, recipe, actions, result);
 }
 
 UTEST(Action, Focused_Touch) {
     Recipe *recipe = get_recipe_by_name(Craft_Job_CUL, "Rarefied Archon Loaf");
     SimpleResult result = { .cp = 375, .durability = 70, .progress = 0, .quality = 270 };
 
-    auto context = make_context(80, SCRIP_70, recipe);
+    auto context = make_context(80, SCRIP_350, recipe);
 
     ASSERT_FALSE(simulate_step(context, CA_Focused_Touch));
     ASSERT_TRUE(simulate_step(context, CA_Observe));
@@ -212,7 +212,7 @@ UTEST(Action, Preparatory_Touch) {
     Craft_Action actions[] = { CA_Preparatory_Touch };
     SimpleResult result = { .cp = 360, .durability = 60, .progress = 0, .quality = 360 };
 
-    SIMPLE_EVAL_AND_CHECK(80, SCRIP_70, recipe, actions, result);
+    SIMPLE_EVAL_AND_CHECK(80, SCRIP_350, recipe, actions, result);
 }
 
 
@@ -220,7 +220,7 @@ UTEST(Action, Byregots_Blessing) {
     Recipe *recipe = get_recipe_by_name(Craft_Job_CUL, "Rarefied Archon Loaf");
     SimpleResult result = { .cp = 370, .durability = 60, .progress = 0, .quality = 482 };
 
-    auto context = make_context(80, SCRIP_70, recipe);
+    auto context = make_context(80, SCRIP_350, recipe);
 
     ASSERT_FALSE(simulate_step(context, CA_Byregots_Blessing));
     ASSERT_TRUE(simulate_step(context, CA_Reflect));
@@ -235,7 +235,7 @@ UTEST(Action, Trained_Finesse) {
     Recipe *recipe = get_recipe_by_name(Craft_Job_CUL, "Rarefied Archon Loaf");
     SimpleResult result = { .cp = 102, .durability = 20, .progress = 0, .quality = 2951 };
 
-    auto context = make_context(80, SCRIP_70, recipe);
+    auto context = make_context(80, SCRIP_350, recipe);
 
     ASSERT_FALSE(simulate_step(context, CA_Trained_Finesse));
     ASSERT_TRUE(simulate_step(context, CA_Reflect));
@@ -263,7 +263,7 @@ UTEST(Combos, Basic_Standard_Touch) {
     Craft_Action actions[] = { CA_Basic_Touch, CA_Standard_Touch };
     SimpleResult result = { .cp = 364, .durability = 60, .progress = 0, .quality = 427 };
 
-    SIMPLE_EVAL_AND_CHECK(80, SCRIP_70, recipe, actions, result);
+    SIMPLE_EVAL_AND_CHECK(80, SCRIP_350, recipe, actions, result);
 }
 
 UTEST(Combos, Basic_Standard_Advanced_Touch) {
@@ -271,7 +271,7 @@ UTEST(Combos, Basic_Standard_Advanced_Touch) {
     Craft_Action actions[] = { CA_Basic_Touch, CA_Standard_Touch, CA_Advanced_Touch };
     SimpleResult result = { .cp = 346, .durability = 50, .progress = 0, .quality = 751 };
 
-    SIMPLE_EVAL_AND_CHECK(80, SCRIP_70, recipe, actions, result);
+    SIMPLE_EVAL_AND_CHECK(80, SCRIP_350, recipe, actions, result);
 }
 
 UTEST(Combos, Standard_Advanced_Touch) {
@@ -279,7 +279,7 @@ UTEST(Combos, Standard_Advanced_Touch) {
     Craft_Action actions[] = { CA_Standard_Touch, CA_Advanced_Touch };
     SimpleResult result = { .cp = 350, .durability = 60, .progress = 0, .quality = 522 };
 
-    SIMPLE_EVAL_AND_CHECK(80, SCRIP_70, recipe, actions, result);
+    SIMPLE_EVAL_AND_CHECK(80, SCRIP_350, recipe, actions, result);
 }
 
 UTEST(Combos, Standard_Standard_Touch) {
@@ -287,7 +287,7 @@ UTEST(Combos, Standard_Standard_Touch) {
     Craft_Action actions[] = { CA_Standard_Touch, CA_Standard_Touch };
     SimpleResult result = { .cp = 336, .durability = 60, .progress = 0, .quality = 472 };
 
-    SIMPLE_EVAL_AND_CHECK(80, SCRIP_70, recipe, actions, result);
+    SIMPLE_EVAL_AND_CHECK(80, SCRIP_350, recipe, actions, result);
 }
 
 UTEST(Combos, Advanced_Advanced_Touch) {
@@ -295,7 +295,7 @@ UTEST(Combos, Advanced_Advanced_Touch) {
     Craft_Action actions[] = { CA_Advanced_Touch, CA_Advanced_Touch };
     SimpleResult result = { .cp = 308, .durability = 60, .progress = 0, .quality = 567 };
 
-    SIMPLE_EVAL_AND_CHECK(80, SCRIP_70, recipe, actions, result);
+    SIMPLE_EVAL_AND_CHECK(80, SCRIP_350, recipe, actions, result);
 }
 
 
@@ -305,7 +305,7 @@ UTEST(Buffs, Masters_Mend) {
     Craft_Action actions[] = { CA_Basic_Touch, CA_Basic_Touch, CA_Basic_Touch, CA_Basic_Touch, CA_Masters_Mend };
     SimpleResult result = { .cp = 240, .durability = 70, .progress = 0, .quality = 827 };
 
-    SIMPLE_EVAL_AND_CHECK(80, SCRIP_70, recipe, actions, result);
+    SIMPLE_EVAL_AND_CHECK(80, SCRIP_350, recipe, actions, result);
 }
 
 UTEST(Buffs, Waste_Not) {
@@ -313,7 +313,7 @@ UTEST(Buffs, Waste_Not) {
     Craft_Action actions[] = { CA_Waste_Not, CA_Basic_Synthesis, CA_Basic_Touch, CA_Basic_Touch, CA_Basic_Touch, CA_Basic_Touch };
     SimpleResult result = { .cp = 272, .durability = 50, .progress = 164, .quality = 827 };
 
-    SIMPLE_EVAL_AND_CHECK(80, SCRIP_70, recipe, actions, result);
+    SIMPLE_EVAL_AND_CHECK(80, SCRIP_350, recipe, actions, result);
 }
 
 UTEST(Buffs, Waste_Not2) {
@@ -321,7 +321,7 @@ UTEST(Buffs, Waste_Not2) {
     Craft_Action actions[] = { CA_Waste_Not2, CA_Basic_Synthesis, CA_Basic_Touch, CA_Basic_Touch, CA_Basic_Touch, CA_Basic_Touch, CA_Basic_Touch, CA_Basic_Touch, CA_Basic_Touch, CA_Basic_Touch };
     SimpleResult result = { .cp = 158, .durability = 30, .progress = 164, .quality = 1943 };
 
-    SIMPLE_EVAL_AND_CHECK(80, SCRIP_70, recipe, actions, result);
+    SIMPLE_EVAL_AND_CHECK(80, SCRIP_350, recipe, actions, result);
 }
 
 UTEST(Buffs, Manipulation) {
@@ -331,14 +331,14 @@ UTEST(Buffs, Manipulation) {
         Craft_Action actions[] = { CA_Manipulation, CA_Basic_Touch, CA_Basic_Touch, CA_Basic_Touch, CA_Basic_Touch, CA_Basic_Touch, CA_Basic_Touch, CA_Basic_Touch, CA_Basic_Touch, CA_Basic_Touch };
         SimpleResult result = { .cp = 249, .durability = 30, .progress = 0, .quality = 2491 };
 
-        SIMPLE_EVAL_AND_CHECK(90, SCRIP_80, recipe, actions, result);
+        SIMPLE_EVAL_AND_CHECK(90, SCRIP_500, recipe, actions, result);
     }
 
     {
         Craft_Action actions[] = { CA_Basic_Touch, CA_Basic_Touch, CA_Basic_Touch, CA_Basic_Touch, CA_Basic_Touch, CA_Basic_Touch, CA_Basic_Touch, CA_Manipulation };
         SimpleResult result = { .cp = 285, .durability = 10, .progress = 0, .quality = 1799 };
 
-        SIMPLE_EVAL_AND_CHECK(90, SCRIP_80, recipe, actions, result);
+        SIMPLE_EVAL_AND_CHECK(90, SCRIP_500, recipe, actions, result);
 
         ASSERT_FALSE(simulate_step(context, CA_Basic_Touch));
         CHECK_STATE(context.state, result);
@@ -350,7 +350,7 @@ UTEST(Buffs, Veneration) {
     Craft_Action actions[] = { CA_Veneration, CA_Basic_Touch, CA_Basic_Synthesis, CA_Basic_Synthesis, CA_Basic_Synthesis, CA_Basic_Synthesis };
     SimpleResult result = { .cp = 364, .durability = 30, .progress = 902, .quality = 180 };
 
-    SIMPLE_EVAL_AND_CHECK(80, SCRIP_70, recipe, actions, result);
+    SIMPLE_EVAL_AND_CHECK(80, SCRIP_350, recipe, actions, result);
 }
 
 UTEST(Buffs, Great_Strides) {
@@ -360,28 +360,28 @@ UTEST(Buffs, Great_Strides) {
         Craft_Action actions[] = { CA_Great_Strides, CA_Basic_Touch, CA_Basic_Touch };
         SimpleResult result = { .cp = 332, .durability = 60, .progress = 0, .quality = 558 };
 
-        SIMPLE_EVAL_AND_CHECK(80, SCRIP_70, recipe, actions, result);
+        SIMPLE_EVAL_AND_CHECK(80, SCRIP_350, recipe, actions, result);
     }
 
     {
         Craft_Action actions[] = { CA_Great_Strides, CA_Basic_Synthesis };
         SimpleResult result = { .cp = 368, .durability = 70, .progress = 164, .quality = 0 };
 
-        SIMPLE_EVAL_AND_CHECK(80, SCRIP_70, recipe, actions, result);
+        SIMPLE_EVAL_AND_CHECK(80, SCRIP_350, recipe, actions, result);
     }
 
     {
         Craft_Action actions[] = { CA_Great_Strides, CA_Basic_Synthesis, CA_Basic_Synthesis, CA_Basic_Touch, };
         SimpleResult result = { .cp = 350, .durability = 50, .progress = 328, .quality = 360 };
 
-        SIMPLE_EVAL_AND_CHECK(80, SCRIP_70, recipe, actions, result);
+        SIMPLE_EVAL_AND_CHECK(80, SCRIP_350, recipe, actions, result);
     }
 
     {
         Craft_Action actions[] = { CA_Great_Strides, CA_Basic_Synthesis, CA_Basic_Synthesis, CA_Basic_Synthesis, CA_Basic_Touch };
         SimpleResult result = { .cp = 350, .durability = 40, .progress = 492, .quality = 180 };
 
-        SIMPLE_EVAL_AND_CHECK(80, SCRIP_70, recipe, actions, result);
+        SIMPLE_EVAL_AND_CHECK(80, SCRIP_350, recipe, actions, result);
     }
 }
 
@@ -390,7 +390,7 @@ UTEST(Buffs, Innovation) {
     Craft_Action actions[] = { CA_Innovation, CA_Basic_Synthesis, CA_Basic_Touch, CA_Basic_Touch, CA_Basic_Touch, CA_Basic_Touch };
     SimpleResult result = { .cp = 310, .durability = 30, .progress = 164, .quality = 1124 };
 
-    SIMPLE_EVAL_AND_CHECK(80, SCRIP_70, recipe, actions, result);
+    SIMPLE_EVAL_AND_CHECK(80, SCRIP_350, recipe, actions, result);
 }
 
 
@@ -401,13 +401,13 @@ UTEST(Manual, buff_rounding) {
     {
         Craft_Action actions[] = { CA_Innovation, CA_Delicate_Synthesis, CA_Delicate_Synthesis, CA_Delicate_Synthesis, };
         SimpleResult result = { .cp = 286, .durability = 50, .progress = 411, .quality = 891 };
-        SIMPLE_EVAL_AND_CHECK(80, SCRIP_70, recipe, actions, result);
+        SIMPLE_EVAL_AND_CHECK(80, SCRIP_350, recipe, actions, result);
     }
 
     {
         Craft_Action actions[] = { CA_Delicate_Synthesis, CA_Delicate_Synthesis, CA_Delicate_Synthesis, CA_Delicate_Synthesis, };
         SimpleResult result = { .cp = 272, .durability = 40, .progress = 548, .quality = 827 };
-        SIMPLE_EVAL_AND_CHECK(80, SCRIP_70, recipe, actions, result);
+        SIMPLE_EVAL_AND_CHECK(80, SCRIP_350, recipe, actions, result);
     }
 }
 
@@ -417,18 +417,18 @@ UTEST(Manual, recipe_level_equals_player_level) {
     {
         Craft_Action actions[] = { CA_Muscle_memory };
         SimpleResult result = { .cp = 501, .durability = 70, .progress = 546, .quality = 0 };
-        SIMPLE_EVAL_AND_CHECK(90, SCRIP_80, recipe, actions, result);
+        SIMPLE_EVAL_AND_CHECK(90, SCRIP_500, recipe, actions, result);
     }
 
     {
         Craft_Action actions[] = { CA_Basic_Touch };
         SimpleResult result = { .cp = 489, .durability = 70, .progress = 0, .quality = 198 };
-        SIMPLE_EVAL_AND_CHECK(90, SCRIP_80, recipe, actions, result);
+        SIMPLE_EVAL_AND_CHECK(90, SCRIP_500, recipe, actions, result);
     }
 
     {
         Craft_Action actions[] = { CA_Muscle_memory, CA_Basic_Touch };
         SimpleResult result = { .cp = 483, .durability = 60, .progress = 546, .quality = 198 };
-        SIMPLE_EVAL_AND_CHECK(90, SCRIP_80, recipe, actions, result);
+        SIMPLE_EVAL_AND_CHECK(90, SCRIP_500, recipe, actions, result);
     }
 }

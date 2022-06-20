@@ -102,7 +102,11 @@ UTEST(Action, Reflect) {
 }
 
 UTEST(Action, Trained_Eye) {
-    // TODO
+    Recipe *recipe = get_recipe_by_name(Craft_Job_CUL, "Smoked Chicken");
+    Craft_Action actions[] = { CA_Trained_Eye };
+    SimpleResult result = { .cp = 257, .durability = 70, .progress = 0, .quality = 9500 };
+
+    SIMPLE_EVAL_AND_CHECK(90, SCRIP_500, recipe, actions, result);
 }
 
 

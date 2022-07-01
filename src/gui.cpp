@@ -1669,22 +1669,22 @@ const char *GUI::init(ID3D11Device *device) {
     auto &style = ImGui::GetStyle();
     auto &colors = style.Colors;
 
-    colors[ImGuiCol_WindowBg] =       ImVec4(0.192f, 0.188f, 0.192f, 1.000f);
-    colors[ImGuiCol_MenuBarBg] =      ImVec4(0.192f, 0.192f, 0.192f, 1.000f);
-    colors[ImGuiCol_ScrollbarBg] =    ImVec4(0.192f, 0.192f, 0.192f, 1.000f);
+    colors[ImGuiCol_WindowBg]       = ImVec4(0.192f, 0.188f, 0.192f, 1.000f);
+    colors[ImGuiCol_MenuBarBg]      = ImVec4(0.192f, 0.192f, 0.192f, 1.000f);
+    colors[ImGuiCol_ScrollbarBg]    = ImVec4(0.192f, 0.192f, 0.192f, 1.000f);
 
-    colors[ImGuiCol_FrameBg] =        ImVec4(0.333f, 0.333f, 0.333f, 1.000f);
-    colors[ImGuiCol_TextDisabled] =   ImVec4(0.549f, 0.549f, 0.549f, 1.000f);
+    colors[ImGuiCol_FrameBg]        = ImVec4(0.333f, 0.333f, 0.333f, 1.000f);
+    colors[ImGuiCol_TextDisabled]   = ImVec4(0.549f, 0.549f, 0.549f, 1.000f);
     colors[ImGuiCol_TextSelectedBg] = ImVec4(0.408f, 0.824f, 0.000f, 0.390f);
 
-    colors[ImGuiCol_Button] =         ImVec4(0.290f, 0.290f, 0.290f, 1.000f);
-    colors[ImGuiCol_ButtonHovered] =  ImVec4(0.353f, 0.353f, 0.353f, 1.000f);
-    colors[ImGuiCol_ButtonActive] =   ImVec4(0.415f, 0.415f, 0.415f, 1.000f); 
+    colors[ImGuiCol_Button]         = ImVec4(0.290f, 0.290f, 0.290f, 1.000f);
+    colors[ImGuiCol_ButtonHovered]  = ImVec4(0.353f, 0.353f, 0.353f, 1.000f);
+    colors[ImGuiCol_ButtonActive]   = ImVec4(0.415f, 0.415f, 0.415f, 1.000f);
 
     // ImGui::Selectable
-    colors[ImGuiCol_Header] =         ImVec4(0.290f, 0.290f, 0.290f, 1.000f);
-    colors[ImGuiCol_HeaderHovered] =  ImVec4(0.353f, 0.353f, 0.353f, 1.000f);
-    colors[ImGuiCol_HeaderActive] =   ImVec4(0.415f, 0.415f, 0.415f, 1.000f);
+    colors[ImGuiCol_Header]         = ImVec4(0.290f, 0.290f, 0.290f, 1.000f);
+    colors[ImGuiCol_HeaderHovered]  = ImVec4(0.353f, 0.353f, 0.353f, 1.000f);
+    colors[ImGuiCol_HeaderActive]   = ImVec4(0.415f, 0.415f, 0.415f, 1.000f);
 
 
     io.IniFilename = "FFTools.ini";

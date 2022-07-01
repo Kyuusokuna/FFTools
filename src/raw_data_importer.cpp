@@ -249,19 +249,19 @@ struct SqPack_Index2_Header {
 #pragma pack(pop)
 
 enum Pack_Type : u8 {
-	Pack_Type_Common = 0x00,
-	Pack_Type_BGCommon = 0x01,
-	Pack_Type_BG = 0x02,
-	Pack_Type_Cut = 0x03,
-	Pack_Type_Chara = 0x04,
-	Pack_Type_Shader = 0x05,
-	Pack_Type_UI = 0x06,
-	Pack_Type_Sound = 0x07,
-	Pack_Type_VFX = 0x08,
+	Pack_Type_Common       = 0x00,
+	Pack_Type_BGCommon     = 0x01,
+	Pack_Type_BG           = 0x02,
+	Pack_Type_Cut          = 0x03,
+	Pack_Type_Chara        = 0x04,
+	Pack_Type_Shader       = 0x05,
+	Pack_Type_UI           = 0x06,
+	Pack_Type_Sound        = 0x07,
+	Pack_Type_VFX          = 0x08,
 	Pack_Type_UNKNOWN_0x09 = 0x09,
-	Pack_Type_exd = 0x0a,
-	Pack_Type_Game_Script = 0x0b,
-	Pack_Type_Music = 0x0c,
+	Pack_Type_exd          = 0x0a,
+	Pack_Type_Game_Script  = 0x0b,
+	Pack_Type_Music        = 0x0c,
 
 	NUM_PACK_TYPES,
 };
@@ -297,10 +297,10 @@ Pack_Type str_to_pack_type(ROString str) {
 
 enum Expansion : u8 {
 	Expansion_ARR = 0x00,
-	Expansion_HW = 0x01,
-	Expansion_SB = 0x02,
+	Expansion_HW  = 0x01,
+	Expansion_SB  = 0x02,
 	Expansion_ShB = 0x03,
-	Expansion_EW = 0x04,
+	Expansion_EW  = 0x04,
 
 	NUM_EXPANSIONS,
 };
@@ -321,9 +321,9 @@ Expansion str_to_expansion(ROString str) {
 enum File_Type : u32 {
 	File_Type_UNKNOWN0 = 0,
 	File_Type_UNKNOWN1 = 1,
-	File_Type_General = 2,
+	File_Type_General  = 2,
 	File_Type_UNKNOWN3 = 3,
-	File_Type_Texture = 4,
+	File_Type_Texture  = 4,
 
 	NUM_FILE_TYPES,
 };
@@ -1060,79 +1060,79 @@ void bswap(T &x) {
 }
 
 enum Column_Type : u16 {
-	Column_Type_STRING = 0,
-	Column_Type_BOOL = 1,
+	Column_Type_STRING    = 0,
+	Column_Type_BOOL      = 1,
 
-	Column_Type_S8 = 2,
-	Column_Type_U8 = 3,
+	Column_Type_S8        = 2,
+	Column_Type_U8        = 3,
 
-	Column_Type_S16 = 4,
-	Column_Type_U16 = 5,
+	Column_Type_S16       = 4,
+	Column_Type_U16       = 5,
 
-	Column_Type_S32 = 6,
-	Column_Type_U32 = 7,
+	Column_Type_S32       = 6,
+	Column_Type_U32       = 7,
 
-	Column_Type_F32 = 9,
+	Column_Type_F32       = 9,
 	Column_Type_UNKNOWN11 = 11,
 
-	Column_Type_BIT0 = 25,
-	Column_Type_BIT1 = 26,
-	Column_Type_BIT2 = 27,
-	Column_Type_BIT3 = 28,
-	Column_Type_BIT4 = 29,
-	Column_Type_BIT5 = 30,
-	Column_Type_BIT6 = 31,
-	Column_Type_BIT7 = 32,
+	Column_Type_BIT0      = 25,
+	Column_Type_BIT1      = 26,
+	Column_Type_BIT2      = 27,
+	Column_Type_BIT3      = 28,
+	Column_Type_BIT4      = 29,
+	Column_Type_BIT5      = 30,
+	Column_Type_BIT6      = 31,
+	Column_Type_BIT7      = 32,
 };
 
 constexpr u8 Column_Type_to_num_bytes[] = {
-	[Column_Type_STRING] = 4,
-	[Column_Type_BOOL] = 1,
+	[Column_Type_STRING]    = 4,
+	[Column_Type_BOOL]      = 1,
 
-	[Column_Type_S8] = 1,
-	[Column_Type_U8] = 1,
+	[Column_Type_S8]        = 1,
+	[Column_Type_U8]        = 1,
 
-	[Column_Type_S16] = 2,
-	[Column_Type_U16] = 2,
+	[Column_Type_S16]       = 2,
+	[Column_Type_U16]       = 2,
 
-	[Column_Type_S32] = 4,
-	[Column_Type_U32] = 4,
+	[Column_Type_S32]       = 4,
+	[Column_Type_U32]       = 4,
 
-	[Column_Type_F32] = 4,
+	[Column_Type_F32]       = 4,
 	[Column_Type_UNKNOWN11] = 8,
 
-	[Column_Type_BIT0] = 1,
-	[Column_Type_BIT1] = 1,
-	[Column_Type_BIT2] = 1,
-	[Column_Type_BIT3] = 1,
-	[Column_Type_BIT4] = 1,
-	[Column_Type_BIT5] = 1,
-	[Column_Type_BIT6] = 1,
-	[Column_Type_BIT7] = 1,
+	[Column_Type_BIT0]      = 1,
+	[Column_Type_BIT1]      = 1,
+	[Column_Type_BIT2]      = 1,
+	[Column_Type_BIT3]      = 1,
+	[Column_Type_BIT4]      = 1,
+	[Column_Type_BIT5]      = 1,
+	[Column_Type_BIT6]      = 1,
+	[Column_Type_BIT7]      = 1,
 };
 
 enum Language : u16 {
-	Language_Generic = 0,
-	Language_Japanese = 1,
-	Language_English = 2,
-	Language_German = 3,
-	Language_French = 4,
-	Language_Chinese_Simplified = 5,
+	Language_Generic             = 0,
+	Language_Japanese            = 1,
+	Language_English             = 2,
+	Language_German              = 3,
+	Language_French              = 4,
+	Language_Chinese_Simplified  = 5,
 	Language_Chinese_Traditional = 6,
-	Language_Korean = 7,
+	Language_Korean              = 7,
 
 	NUM_LANGUAGES
 };
 
 const ROString Language_to_string[NUM_LANGUAGES] = {
-	[Language_Generic] = "",
-	[Language_Japanese] = "_ja",
-	[Language_English] = "_en",
-	[Language_German] = "_de",
-	[Language_French] = "_fr",
-	[Language_Chinese_Simplified] = "_chs",
+	[Language_Generic]             = "",
+	[Language_Japanese]            = "_ja",
+	[Language_English]             = "_en",
+	[Language_German]              = "_de",
+	[Language_French]              = "_fr",
+	[Language_Chinese_Simplified]  = "_chs",
 	[Language_Chinese_Traditional] = "_cht",
-	[Language_Korean] = "_ko",
+	[Language_Korean]              = "_ko",
 };
 
 template<typename T>

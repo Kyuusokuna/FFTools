@@ -85,6 +85,11 @@ String make_teamcraft_list_import_string(Array<Item_List::Entry> &item_list) {
     return base64_payload;
 }
 
+ImGuiID GetID(const int int_id) {
+    ImGuiWindow *window = GImGui->CurrentWindow;
+    return window->GetID(int_id);
+}
+
 float CalcButtonWidth(const char *text) {
     auto &style = ImGui::GetStyle();
     float text_width = ImGui::CalcTextSize(text, 0, true).x;
@@ -391,7 +396,7 @@ bool FFUI_ActionButton_action(ImGuiID id, Craft_Job job, Craft_Action action, Cr
 void job_selector(Craft_Job &selected_job) {
     if (selected_job == (Craft_Job)-1) {
         for (int job = 0; job < NUM_JOBS; job++)
-            if (FFUI_ActionButton_job(ImGui::GetID(job), (Craft_Job)job))
+            if (FFUI_ActionButton_job(GetID(job), (Craft_Job)job))
                 selected_job = (Craft_Job)job;
         return;
     }
@@ -426,7 +431,7 @@ void craft_actions_selector(Craft_Job job, u32 &active_actions, u32 visible_acti
             auto action = Craft_Actions_Progress[i];
 
             if (visible_actions & (1 << action)) {
-                if (FFUI_ActionButton_action(ImGui::GetID(action), job, action, previous_action, active_actions & (1 << action), false, drag_drop_source, has_displayed_first))
+                if (FFUI_ActionButton_action(GetID(action), job, action, previous_action, active_actions & (1 << action), false, drag_drop_source, has_displayed_first))
                     active_actions ^= 1 << action;
 
                 has_displayed_first = true;
@@ -449,7 +454,7 @@ void craft_actions_selector(Craft_Job job, u32 &active_actions, u32 visible_acti
             auto action = Craft_Actions_Quality[i];
 
             if (visible_actions & (1 << action)) {
-                if (FFUI_ActionButton_action(ImGui::GetID(action), job, action, previous_action, active_actions & (1 << action), false, drag_drop_source, has_displayed_first))
+                if (FFUI_ActionButton_action(GetID(action), job, action, previous_action, active_actions & (1 << action), false, drag_drop_source, has_displayed_first))
                     active_actions ^= 1 << action;
 
                 has_displayed_first = true;
@@ -469,7 +474,7 @@ void craft_actions_selector(Craft_Job job, u32 &active_actions, u32 visible_acti
             auto action = Craft_Actions_Buff[i];
 
             if (visible_actions & (1 << action)) {
-                if (FFUI_ActionButton_action(ImGui::GetID(action), job, action, previous_action, active_actions & (1 << action), false, drag_drop_source, has_displayed_first))
+                if (FFUI_ActionButton_action(GetID(action), job, action, previous_action, active_actions & (1 << action), false, drag_drop_source, has_displayed_first))
                     active_actions ^= 1 << action;
 
                 has_displayed_first = true;
@@ -493,7 +498,7 @@ void craft_actions_selector(Craft_Job job, u32 &active_actions, u32 visible_acti
             auto action = Craft_Actions_Other[i];
 
             if (visible_actions & (1 << action)) {
-                if (FFUI_ActionButton_action(ImGui::GetID(action), job, action, previous_action, active_actions & (1 << action), false, drag_drop_source, has_displayed_first))
+                if (FFUI_ActionButton_action(GetID(action), job, action, previous_action, active_actions & (1 << action), false, drag_drop_source, has_displayed_first))
                     active_actions ^= 1 << action;
 
                 has_displayed_first = true;
@@ -798,11 +803,11 @@ void simulator_panel() {
     bool has_actions = data.num_actions != 0;
     Craft_Action previous_action = (Craft_Action)-1;
     for (int i = 0; i < data.num_actions; i++) {
-        auto button = FFUI_register_ActionButton(ImGui::GetID(i), i != 0);
+        auto button = FFUI_register_ActionButton(GetID(i), i != 0);
 
         if (ImGui::BeginDragDropSource()) {
             FFUI_draw_ActionButton_empty(button);
-            FFUI_ActionButton_action(ImGui::GetID(i), simulator_data.selected_job, data.actions[i], previous_action);
+            FFUI_ActionButton_action(GetID(i), simulator_data.selected_job, data.actions[i], previous_action);
 
             Drag_Drop_Payload_Craft_Action payload = {};
             payload.job = simulator_data.selected_job;
@@ -821,7 +826,7 @@ void simulator_panel() {
                 auto payload_info = (Drag_Drop_Payload_Craft_Action *)payload->Data;
 
                 FFUI_draw_ActionButton_action(button, payload_info->job, payload_info->action, previous_action);
-                button = FFUI_register_ActionButton(ImGui::GetID(i));
+                button = FFUI_register_ActionButton(GetID(i));
 
                 if (payload->Delivery) {
                     insert_at_index(i, payload_info->action);
@@ -846,7 +851,7 @@ void simulator_panel() {
         previous_action = data.actions[i];
     }
 
-    auto empty_slot = FFUI_register_ActionButton(ImGui::GetID(-1), has_actions);
+    auto empty_slot = FFUI_register_ActionButton(GetID(-1), has_actions);
 
     if (ImGui::BeginDragDropTarget()) {
         auto payload = ImGui::AcceptDragDropPayload("Craft_Action", ImGuiDragDropFlags_AcceptBeforeDelivery);
@@ -854,7 +859,7 @@ void simulator_panel() {
             auto payload_info = (Drag_Drop_Payload_Craft_Action *)payload->Data;
 
             FFUI_draw_ActionButton_action(empty_slot, payload_info->job, payload_info->action, previous_action);
-            empty_slot = FFUI_register_ActionButton(ImGui::GetID(-1));
+            empty_slot = FFUI_register_ActionButton(GetID(-1));
 
             if (payload->Delivery) {
                 data.actions[data.num_actions] = payload_info->action;
@@ -1019,11 +1024,11 @@ void solver_panel() {
                             data.selected_recipe->durability);
 
     if (!current_result.depth)
-        FFUI_draw_ActionButton_empty(FFUI_register_ActionButton(ImGui::GetID(0), false));
+        FFUI_draw_ActionButton_empty(FFUI_register_ActionButton(GetID(0), false));
 
     Craft_Action previous_action = (Craft_Action)-1;
     for (int i = 0; i < current_result.depth; i++) {
-        FFUI_ActionButton_action(ImGui::GetID(i), solver.selected_job, current_result.actions[i], previous_action, true, false, false, i != 0);
+        FFUI_ActionButton_action(GetID(i), solver.selected_job, current_result.actions[i], previous_action, true, false, false, i != 0);
         previous_action = current_result.actions[i];
     }
 

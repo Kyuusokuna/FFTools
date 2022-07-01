@@ -233,7 +233,7 @@
       <AdditionalOptions>-Wno-unused-function -Wno-unused-variable -Wno-c99-designator %(AdditionalOptions)</AdditionalOptions>
       <ExceptionHandling>false</ExceptionHandling>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>%(ProjectDir)libs;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>%(ProjectDir)libs;%(ProjectDir)libs/imgui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -330,19 +330,19 @@
     <ClCompile Include="generated_src\Experience.cpp" />
     <ClCompile Include="generated_src\Items.cpp" />
     <ClCompile Include="generated_src\Recipes.cpp" />
+    <ClCompile Include="libs\imgui\backends\imgui_impl_dx11.cpp" />
+    <ClCompile Include="libs\imgui\backends\imgui_impl_win32.cpp" />
+    <ClCompile Include="libs\imgui\imgui.cpp" />
+    <ClCompile Include="libs\imgui\imgui_demo.cpp" />
+    <ClCompile Include="libs\imgui\imgui_draw.cpp" />
+    <ClCompile Include="libs\imgui\imgui_tables.cpp" />
+    <ClCompile Include="libs\imgui\imgui_widgets.cpp" />
     <ClCompile Include="src\crafting_simulator.cpp" />
     <ClCompile Include="src\crafting_solver3.cpp" />
     <ClCompile Include="src\Craft_Actions.cpp" />
     <ClCompile Include="src\Craft_Jobs.cpp" />
     <ClCompile Include="src\d3d11_util.cpp" />
     <ClCompile Include="src\gui.cpp" />
-    <ClCompile Include="libs\imgui\imgui.cpp" />
-    <ClCompile Include="libs\imgui\imgui_demo.cpp" />
-    <ClCompile Include="libs\imgui\imgui_draw.cpp" />
-    <ClCompile Include="libs\imgui\imgui_impl_dx11.cpp" />
-    <ClCompile Include="libs\imgui\imgui_impl_win32.cpp" />
-    <ClCompile Include="libs\imgui\imgui_tables.cpp" />
-    <ClCompile Include="libs\imgui\imgui_widgets.cpp" />
     <ClCompile Include="libs\miniz\miniz.c" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\string.cpp" />
@@ -356,6 +356,14 @@
     <ClInclude Include="generated_src\Experience.h" />
     <ClInclude Include="generated_src\Items.h" />
     <ClInclude Include="generated_src\Recipes.h" />
+    <ClInclude Include="libs\imgui\backends\imgui_impl_dx11.h" />
+    <ClInclude Include="libs\imgui\backends\imgui_impl_win32.h" />
+    <ClInclude Include="libs\imgui\imconfig.h" />
+    <ClInclude Include="libs\imgui\imgui.h" />
+    <ClInclude Include="libs\imgui\imgui_internal.h" />
+    <ClInclude Include="libs\imgui\imstb_rectpack.h" />
+    <ClInclude Include="libs\imgui\imstb_textedit.h" />
+    <ClInclude Include="libs\imgui\imstb_truetype.h" />
     <ClInclude Include="src\Array.h" />
     <ClInclude Include="src\crafting_simulator.h" />
     <ClInclude Include="src\crafting_solver3.h" />
@@ -366,14 +374,6 @@
     <ClInclude Include="data\Font_Roboto.h" />
     <ClInclude Include="src\global_data.h" />
     <ClInclude Include="src\gui.h" />
-    <ClInclude Include="libs\imgui\imconfig.h" />
-    <ClInclude Include="libs\imgui\imgui.h" />
-    <ClInclude Include="libs\imgui\imgui_impl_dx11.h" />
-    <ClInclude Include="libs\imgui\imgui_impl_win32.h" />
-    <ClInclude Include="libs\imgui\imgui_internal.h" />
-    <ClInclude Include="libs\imgui\imstb_rectpack.h" />
-    <ClInclude Include="libs\imgui\imstb_textedit.h" />
-    <ClInclude Include="libs\imgui\imstb_truetype.h" />
     <ClInclude Include="libs\miniz\miniz.h" />
     <ClInclude Include="libs\renderdoc\renderdoc_app.h" />
     <ClInclude Include="libs\renderdoc\renderdoc.h" />

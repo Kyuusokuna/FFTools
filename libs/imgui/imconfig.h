@@ -30,15 +30,15 @@
 #define IMGUI_DISABLE_OBSOLETE_FUNCTIONS
 #define IMGUI_DISABLE_OBSOLETE_KEYIO                      // 1.87: disable legacy io.KeyMap[]+io.KeysDown[] in favor io.AddKeyEvent(). This will be folded into IMGUI_DISABLE_OBSOLETE_FUNCTIONS in a few versions.
 
-//---- Disable all of Dear ImGui or don't implement standard windows.
-// It is very strongly recommended to NOT disable the demo windows during development. Please read comments in imgui_demo.cpp.
+//---- Disable all of Dear ImGui or don't implement standard windows/tools.
+// It is very strongly recommended to NOT disable the demo windows and debug tool during development. They are extremely useful in day to day work. Please read comments in imgui_demo.cpp.
 //#define IMGUI_DISABLE                                     // Disable everything: all headers and source files will be empty.
-//#define IMGUI_DISABLE_DEMO_WINDOWS                        // Disable demo windows: ShowDemoWindow()/ShowStyleEditor() will be empty. Not recommended.
-//#define IMGUI_DISABLE_METRICS_WINDOW                      // Disable metrics/debugger and other debug tools: ShowMetricsWindow() and ShowStackToolWindow() will be empty.
+//#define IMGUI_DISABLE_DEMO_WINDOWS                        // Disable demo windows: ShowDemoWindow()/ShowStyleEditor() will be empty.
+//#define IMGUI_DISABLE_DEBUG_TOOLS                         // Disable metrics/debugger and other debug tools: ShowMetricsWindow(), ShowDebugLogWindow() and ShowStackToolWindow() will be empty (this was called IMGUI_DISABLE_METRICS_WINDOW before 1.88).
 
 #ifdef NDEBUG
 #define IMGUI_DISABLE_DEMO_WINDOWS
-#define IMGUI_DISABLE_METRICS_WINDOW
+#define IMGUI_DISABLE_DEBUG_TOOLS
 #endif
 
 //---- Don't implement some functions to reduce linkage requirements.
@@ -86,6 +86,15 @@
 
 //---- Define constructor and implicit cast operators to convert back<>forth between your math types and ImVec2/ImVec4.
 // This will be inlined as part of ImVec2 and ImVec4 class declarations.
+/*
+#define IM_VEC2_CLASS_EXTRA                                                     \
+        constexpr ImVec2(const MyVec2& f) : x(f.x), y(f.y) {}                   \
+        operator MyVec2() const { return MyVec2(x,y); }
+
+#define IM_VEC4_CLASS_EXTRA                                                     \
+        constexpr ImVec4(const MyVec4& f) : x(f.x), y(f.y), z(f.z), w(f.w) {}   \
+        operator MyVec4() const { return MyVec4(x,y,z,w); }
+*/
 
 #include "../src/types.h"
 #define IM_VEC2_CLASS_EXTRA                                                  \
